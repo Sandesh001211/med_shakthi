@@ -47,6 +47,7 @@ dependencies:
   cloud_firestore: ^6.1.1
   fl_chart: ^1.1.1
   shared_preferences: ^2.5.4
+  package_info_plus: ^9.0.0
 
 
 dev_dependencies:
