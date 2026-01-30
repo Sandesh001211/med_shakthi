@@ -9,6 +9,7 @@ import 'package:med_shakthi/src/features/dashboard/pharmacy_home_screen.dart';
 import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
 import 'package:med_shakthi/src/features/dashboard/supplier_dashboard.dart';
 import 'package:med_shakthi/src/features/cart/data/cart_data.dart';
+import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +27,10 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CartData()),
-        ChangeNotifierProvider(create: (_) => AddressStore()), //  ADD THIS
+        ChangeNotifierProvider(create: (_) => AddressStore()),
+        ChangeNotifierProvider(
+          create: (_) => WishlistService(userId: 'demo-user'),
+        ), // ADD THIS
       ],
       child: const MyApp(),
     ),
@@ -104,7 +108,9 @@ class _AuthGateState extends State<AuthGate> {
     // 1. Show Loading while checking role
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF4C8077))),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF4C8077)),
+        ),
       );
     }
 

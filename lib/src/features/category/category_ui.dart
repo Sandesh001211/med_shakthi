@@ -290,14 +290,14 @@ class _CategoryGroupTitle extends StatelessWidget {
 
 class CategoryItem {
   final String title;
-  final String imageAsset;
+  final IconData icon;
   final String skuCountText; // e.g. "120+ SKUs"
   final String badgeText; // e.g. "Fast moving" / "Offer"
   final Color badgeColor;
 
   CategoryItem({
     required this.title,
-    required this.imageAsset,
+    required this.icon,
     required this.skuCountText,
     required this.badgeText,
     required this.badgeColor,
@@ -308,21 +308,21 @@ class CategoryItem {
 final List<CategoryItem> corePharmacyCategories = [
   CategoryItem(
     title: 'Medicines',
-    imageAsset: 'assets/categories/medicine.png',
+    icon: Icons.medication,
     skuCountText: '450+ SKUs',
     badgeText: 'Fast moving',
     badgeColor: Colors.green.shade600,
   ),
   CategoryItem(
     title: 'Diabetes',
-    imageAsset: 'assets/categories/diabetes.png',
+    icon: Icons.bloodtype,
     skuCountText: '90+ SKUs',
     badgeText: 'High margin',
     badgeColor: Colors.blue.shade600,
   ),
   CategoryItem(
     title: 'BP Monitor',
-    imageAsset: 'assets/categories/bp_monitor.png',
+    icon: Icons.monitor_heart,
     skuCountText: '25 SKUs',
     badgeText: 'Top rated',
     badgeColor: Colors.orange.shade600,
@@ -332,21 +332,21 @@ final List<CategoryItem> corePharmacyCategories = [
 final List<CategoryItem> personalCareCategories = [
   CategoryItem(
     title: 'Face & Beauty',
-    imageAsset: 'assets/categories/face_care.png',
+    icon: Icons.face,
     skuCountText: '120+ SKUs',
     badgeText: 'Up to 20% off',
     badgeColor: Colors.red.shade500,
   ),
   CategoryItem(
     title: 'Hair Care',
-    imageAsset: 'assets/categories/hair_care.png',
+    icon: Icons.content_cut,
     skuCountText: '80+ SKUs',
     badgeText: 'Fast moving',
     badgeColor: Colors.green.shade600,
   ),
   CategoryItem(
     title: 'Soaps & Bodywash',
-    imageAsset: 'assets/categories/soap.png',
+    icon: Icons.clean_hands,
     skuCountText: '140+ SKUs',
     badgeText: 'Best margins',
     badgeColor: Colors.blue.shade600,
@@ -356,28 +356,28 @@ final List<CategoryItem> personalCareCategories = [
 final List<CategoryItem> deviceCategories = [
   CategoryItem(
     title: 'Thermometer',
-    imageAsset: 'assets/categories/thermometer.png',
+    icon: Icons.thermostat,
     skuCountText: '20 SKUs',
     badgeText: 'Bestseller',
     badgeColor: Colors.orange.shade600,
   ),
   CategoryItem(
     title: 'Oximeter',
-    imageAsset: 'assets/categories/oximeter.png',
+    icon: Icons.monitor_weight_outlined, // approximate
     skuCountText: '15 SKUs',
     badgeText: 'Only few left',
     badgeColor: Colors.red.shade500,
   ),
   CategoryItem(
     title: 'Weighing Scale',
-    imageAsset: 'assets/categories/weight_scale.png',
+    icon: Icons.monitor_weight,
     skuCountText: '10 SKUs',
     badgeText: 'New',
     badgeColor: Colors.purple.shade500,
   ),
   CategoryItem(
     title: 'Supplements',
-    imageAsset: 'assets/categories/supplement.png',
+    icon: Icons.medication_liquid,
     skuCountText: '—',
     badgeText: 'Available',
     badgeColor: Colors.green.shade600,
@@ -385,7 +385,7 @@ final List<CategoryItem> deviceCategories = [
 
   CategoryItem(
     title: 'Surgical',
-    imageAsset: 'assets/categories/surgical.png',
+    icon: Icons.local_hospital,
     skuCountText: '—',
     badgeText: 'Available',
     badgeColor: Colors.blue.shade600,
@@ -427,11 +427,14 @@ class CategoryCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(6.0),
-                child: Image.asset(item.imageAsset, fit: BoxFit.contain),
+              child: Center(
+                child: Icon(
+                  item.icon,
+                  size: 40,
+                  color: item.badgeColor, // Use badge color for icon theme
+                ),
               ),
             ),
             Padding(

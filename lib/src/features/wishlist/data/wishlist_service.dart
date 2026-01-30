@@ -1,49 +1,33 @@
-import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'models/wishlist_item_model.dart';
 
-class WishlistService {
+class WishlistService extends ChangeNotifier {
   final String userId;
 
   WishlistService({required this.userId});
 
   final List<WishlistItem> _wishlist = [];
 
-  final StreamController<List<WishlistItem>> _wishlistController =
-  StreamController<List<WishlistItem>>.broadcast();
-
-  Stream<List<WishlistItem>> getWishlistStream() {
-    Future.microtask(() {
-      _wishlistController.add(List.unmodifiable(_wishlist));
-    });
-    return _wishlistController.stream;
-  }
-
-  void _emit() {
-    _wishlistController.add(List.unmodifiable(_wishlist));
-  }
+  List<WishlistItem> get wishlist => List.unmodifiable(_wishlist);
 
   bool isInWishlist(String productId) {
     return _wishlist.any((item) => item.id == productId);
   }
 
-  Future<void> addToWishlist(WishlistItem item) async {
+  void addToWishlist(WishlistItem item) {
     if (!isInWishlist(item.id)) {
       _wishlist.add(item);
-      _emit();
+      notifyListeners();
     }
   }
 
-  Future<void> removeFromWishlist(String productId) async {
+  void removeFromWishlist(String productId) {
     _wishlist.removeWhere((item) => item.id == productId);
-    _emit();
+    notifyListeners();
   }
 
   void clearWishlist() {
     _wishlist.clear();
-    _emit();
-  }
-
-  void dispose() {
-    _wishlistController.close();
+    notifyListeners();
   }
 }

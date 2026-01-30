@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../checkout/presentation/screens/AddressSelectScreen.dart';
 import '../../data/cart_data.dart';
 import '../../data/cart_item.dart';
+import '../../../wishlist/presentation/screens/wishlist_page.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -66,9 +67,16 @@ class CartPage extends StatelessWidget {
                   const SizedBox(width: 8),
 
                   //  Wishlist
-                  _buildIconButton(context, Icons.favorite_border, onTap: () {
-                    // TODO: Add all cart items to wishlist
-                  }),
+                  _buildIconButton(
+                    context,
+                    Icons.favorite_border,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const WishlistPage()),
+                      );
+                    },
+                  ),
                   const SizedBox(width: 8),
                   _buildIconButton(context, Icons.share_outlined, onTap: () {}),
                 ],
