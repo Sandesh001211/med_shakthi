@@ -1,27 +1,19 @@
 class B2BProductFilter {
-  String sortBy;
+  String? sortBy; // price_low | price_high
 
-  bool expiry3Months;
-  bool expiry6Months;
-  bool nonExpiredOnly;
+  bool expiry3Months = false;
+  bool expiry6Months = false;
 
-  bool highMargin;
-  bool discountAvailable;
-  bool bulkOffers;
+  B2BProductFilter();
 
-  bool inStockOnly;
-
-  bool verifiedSupplierOnly;
-
-  B2BProductFilter({
-    this.sortBy = 'price_low',
-    this.expiry3Months = false,
-    this.expiry6Months = false,
-    this.nonExpiredOnly = true,
-    this.highMargin = false,
-    this.discountAvailable = false,
-    this.bulkOffers = false,
-    this.inStockOnly = true,
-    this.verifiedSupplierOnly = false,
-  });
+  DateTime? get expiryBefore {
+    final now = DateTime.now();
+    if (expiry3Months) {
+      return DateTime(now.year, now.month + 3, now.day);
+    }
+    if (expiry6Months) {
+      return DateTime(now.year, now.month + 6, now.day);
+    }
+    return null;
+  }
 }

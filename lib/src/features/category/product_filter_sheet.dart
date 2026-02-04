@@ -25,8 +25,7 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
-              // 🔙 HEADER WITH BACK BUTTON
+              // HEADER
               Row(
                 children: [
                   IconButton(
@@ -49,47 +48,18 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
 
               const SizedBox(height: 12),
 
-              // ================= SORT =================
               _sectionTitle('Sort By'),
               _radio('Price: Low → High', 'price_low'),
               _radio('Price: High → Low', 'price_high'),
-              _radio('Expiry: Nearest First', 'expiry_near'),
-              _radio('Margin: High → Low', 'margin_high'),
-              _radio('Newest Stock', 'newest'),
 
               _divider(),
 
-              // ================= EXPIRY =================
               _sectionTitle('Expiry'),
               _check('Expiry within 3 months', (v) => filter.expiry3Months = v),
               _check('Expiry within 6 months', (v) => filter.expiry6Months = v),
-              _check('Non-expired only', (v) => filter.nonExpiredOnly = v),
-
-              _divider(),
-
-              // ================= BUSINESS =================
-              _sectionTitle('Business'),
-              _check('High margin products', (v) => filter.highMargin = v),
-              _check('Discount available', (v) => filter.discountAvailable = v),
-
-              _divider(),
-
-              // ================= STOCK =================
-              _sectionTitle('Stock'),
-              _check('In stock only', (v) => filter.inStockOnly = v),
-
-              _divider(),
-
-              // ================= SUPPLIER =================
-              _sectionTitle('Supplier'),
-              _check(
-                'Verified suppliers only',
-                    (v) => filter.verifiedSupplierOnly = v,
-              ),
 
               const SizedBox(height: 20),
 
-              // ✅ APPLY BUTTON
               SizedBox(
                 width: double.infinity,
                 height: 46,
@@ -116,8 +86,6 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
       ),
     );
   }
-
-  // ================= HELPERS =================
 
   Widget _sectionTitle(String text) {
     return Padding(
@@ -146,7 +114,7 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
       value: value,
       groupValue: filter.sortBy,
       activeColor: const Color(0xff2b9c8f),
-      onChanged: (v) => setState(() => filter.sortBy = v!),
+      onChanged: (v) => setState(() => filter.sortBy = v),
     );
   }
 
@@ -154,30 +122,11 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
     return CheckboxListTile(
       dense: true,
       title: Text(label, style: const TextStyle(fontSize: 13)),
-      value: _getValue(label),
+      value: label.contains('3')
+          ? filter.expiry3Months
+          : filter.expiry6Months,
       activeColor: const Color(0xff2b9c8f),
       onChanged: (v) => setState(() => onChanged(v!)),
     );
-  }
-
-  bool _getValue(String label) {
-    switch (label) {
-      case 'Expiry within 3 months':
-        return filter.expiry3Months;
-      case 'Expiry within 6 months':
-        return filter.expiry6Months;
-      case 'Non-expired only':
-        return filter.nonExpiredOnly;
-      case 'High margin products':
-        return filter.highMargin;
-      case 'Discount available':
-        return filter.discountAvailable;
-      case 'In stock only':
-        return filter.inStockOnly;
-      case 'Verified suppliers only':
-        return filter.verifiedSupplierOnly;
-      default:
-        return false;
-    }
   }
 }
