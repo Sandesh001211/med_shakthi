@@ -9,6 +9,8 @@ import 'package:med_shakthi/src/features/checkout/presentation/screens/address_s
 import 'package:med_shakthi/src/features/checkout/presentation/screens/address_select_screen.dart';
 import '../../../orders/orders_page.dart';
 
+import '../../../checkout/presentation/screens/payment_methods_for_pro_page.dart';
+
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
 
@@ -381,7 +383,18 @@ class _AccountPageState extends State<AccountPage> {
                         const SizedBox(height: 12),
 
                         //  Payment Section (Static placeholder)
-                        const _SimpleExpansionTile(title: "Payment Methods"),
+                        _SimpleExpansionTile(
+                          title: "Payment Methods",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PaymentMethodsPage(),
+                              ),
+                            );
+                          },
+                        ),
+
 
                         const SizedBox(height: 12),
 
@@ -534,3 +547,4 @@ class _SimpleExpansionTile extends StatelessWidget {
     );
   }
 }
+

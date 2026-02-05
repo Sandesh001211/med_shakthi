@@ -66,17 +66,17 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.info_outline,
             onTap: _showAboutAppDialog,
           ),
-          const SizedBox(height: 12),
-          _tileButton(
-            title: "Logout",
-            subtitle: "Sign out from your account",
-            icon: Icons.logout,
-            onTap: () async {
-              await supabase.auth.signOut();
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
-          ),
+          // const SizedBox(height: 12),
+          // _tileButton(
+          //   title: "Logout",
+          //   subtitle: "Sign out from your account",
+          //   icon: Icons.logout,
+          //   onTap: () async {
+          //     await supabase.auth.signOut();
+          //     if (!mounted) return;
+          //     Navigator.pop(context);
+          //   },
+          // ),
         ],
       ),
     );
