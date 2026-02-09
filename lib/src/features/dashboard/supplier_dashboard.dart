@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../cart/presentation/screens/cart_page.dart';
 import '../orders/orders_page.dart';
 import '../profile/presentation/screens/chat_list_screen.dart';
@@ -7,8 +6,7 @@ import '../profile/presentation/screens/supplier_category_page.dart';
 import '../profile/presentation/screens/supplier_payout_page.dart';
 import '../profile/presentation/screens/supplier_profile_screen.dart';
 import '../profile/presentation/screens/supplier_wishlist_page.dart';
-import '../chat_support/chat_support_entry.dart';
-import 'package:med_shakthi/src/features/chat_support/chat_support_entry.dart';
+import '../supplier/inventory/ui/add_product_page.dart'; // ✅ ADDED FOR FAB
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});
@@ -25,9 +23,8 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
 
   late final List<Widget> _pages = [
     const SupplierDashboardHome(),
-    ChatSupportEntryPage(
-      isSupplierView: true, // 👈 IMPORTANT
-    ),
+    const SupplierCategoryPage(),
+    const SupplierWishlistPage(),
     const OrdersPage(),
     const SupplierProfileScreen(),
   ];
@@ -35,38 +32,20 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
-
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Drawer coming soon')),
-            );
-          },
-        ),
-        title: const Text(
-          'Supplier Dashboard',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CartPage()),
-              );
-            },
-          ),
-        ],
+      backgroundColor: theme.scaffoldBackgroundColor,
+      //  FAB ADDED - Shows on ALL tabs!
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddProductPage()),
+          );
+        },
+        backgroundColor: const Color(0xFF4CA6A8),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("Add Product", style: TextStyle(color: Colors.white)),
       ),
-
       body: SafeArea(child: _pages[_selectedIndex]),
-
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF4CA6A8),
@@ -75,17 +54,18 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_filled),
-            label: "Home",
+            icon: Icon(Icons.grid_view),
+            label: "Category",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: "Chat Requests", // 👈 renamed
+            icon: Icon(Icons.favorite_border),
+            label: "Wishlist",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
-            label: "Orders",
+            label: "Order",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -97,121 +77,261 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
   }
 }
 
-
 class SupplierDashboardHome extends StatelessWidget {
   const SupplierDashboardHome({super.key});
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _promoBanner(),
-          const SizedBox(height: 25),
-          _sectionTitle("Quick Actions"),
-          const SizedBox(height: 15),
-          _quickActions(),
+          const SizedBox(height: 20),
+          _buildTopBar(context),
+          const SizedBox(height: 20),
+          _buildPromoBanner(context),
           const SizedBox(height: 30),
-          _sectionTitle("Performance"),
+          _buildSectionHeader("Categories"),
           const SizedBox(height: 15),
-          _performanceGrid(),
+          _buildCategoryList(context),
+          const SizedBox(height: 30),
+          _buildSectionHeader("Performance Stats"),
+          const SizedBox(height: 15),
+          _buildPerformanceGrid(context),
+          const SizedBox(height: 100), // ✅ CHANGED: Space for FAB
         ],
       ),
     );
   }
 
-  Widget _promoBanner() {
+  Widget _buildTopBar(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(
+            Icons.grid_view_rounded,
+            color: Theme.of(context).iconTheme.color,
+          ),
+        ),
+        const SizedBox(width: 15),
+
+        Expanded(
+          child: Container(
+            height: 50,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: const TextField(
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                hintText: "Search analytics...",
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 15),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 15),
+
+        //  Clickable Cart Icon
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CartPage()),
+            );
+          },
+          child: Stack(
+            children: [
+              CircleAvatar(
+                backgroundColor: Theme.of(context).cardColor,
+                child: Icon(
+                  Icons.shopping_cart_outlined,
+                  color: Theme.of(context).iconTheme.color,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                child: CircleAvatar(
+                  radius: 8,
+                  backgroundColor: Color(0xFF4CA6A8),
+                  child: Text(
+                    "3",
+                    style: TextStyle(fontSize: 10, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPromoBanner(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(30),
         gradient: const LinearGradient(
           colors: [Color(0xFF63B4B7), Color(0xFF4CA6A8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
+        children: [
+          const Text(
             "Supplier Growth",
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          SizedBox(height: 8),
-          Text(
-            "Your monthly performance is improving",
+          const SizedBox(height: 8),
+          const Text(
+            "Monthly payout is ready",
             style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF4CA6A8),
+              shape: const StadiumBorder(),
+              elevation: 0,
+            ),
+            child: const Text("View Report"),
           ),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF2D2D2D),
+  Widget _buildSectionHeader(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2D2D2D),
+          ),
+        ),
+        const Text(
+          "See All",
+          style: TextStyle(
+            color: Color(0xFF4CA6A8),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryList(BuildContext context) {
+    final List<Map<String, dynamic>> cats = [
+      {"icon": Icons.inventory_2, "label": "Orders"},
+      {"icon": Icons.analytics, "label": "Sales"},
+      {"icon": Icons.people, "label": "Clients"},
+      {"icon": Icons.account_balance_wallet, "label": "Payouts"},
+    ];
+
+    return SizedBox(
+      height: 95,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: cats.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 25),
+        itemBuilder: (context, index) {
+          final label = cats[index]['label'];
+
+          return InkWell(
+            borderRadius: BorderRadius.circular(50),
+            onTap: () {
+              //  NAVIGATION LOGIC
+              if (label == "Orders") {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OrdersPage()),
+                );
+              } else if (label == "Clients") {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
+                );
+              } else if (label == "Payouts") {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SupplierPayoutPage()),
+                );
+              } else if (label == "Sales") {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Sales page coming soon")),
+                );
+              }
+            },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    cats[index]['icon'],
+                    color: const Color(0xFF4CA6A8),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _quickActions() {
-    final items = [
-      {"icon": Icons.receipt_long, "label": "Orders"},
-      {"icon": Icons.chat, "label": "Chats"},
-      {"icon": Icons.account_balance_wallet, "label": "Payouts"},
-      {"icon": Icons.analytics, "label": "Reports"},
-    ];
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: items.map((e) {
-        return Column(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: Colors.white,
-              child: Icon(e['icon'] as IconData, color: const Color(0xFF4CA6A8)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              e['label'] as String,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ],
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _performanceGrid() {
+  Widget _buildPerformanceGrid(BuildContext context) {
     return GridView.count(
-      crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
       crossAxisSpacing: 15,
       mainAxisSpacing: 15,
-      childAspectRatio: 0.85,
-      children: const [
-        _StatCard(title: "Revenue", value: "₹ 4.5L"),
-        _StatCard(title: "Pending Orders", value: "14"),
+      childAspectRatio: 0.80,
+      children: [
+        _statItem(context, "Revenue", "₹ 4.5L", "Supplements", "+12%"),
+        _statItem(context, "Pending", "14 Units", "Medicine", "Alert"),
       ],
     );
   }
-}
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _StatCard({required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _statItem(BuildContext context, String title, String value, String sub, String badge) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -221,17 +341,49 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.bar_chart, color: Colors.grey),
-          const Spacer(),
-          Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF4CA6A8),
+          Container(
+            height: 55,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(15),
             ),
+            child: const Icon(Icons.bar_chart, color: Colors.grey, size: 40),
+          ),
+          const SizedBox(height: 10),
+          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFF4CA6A8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CA6A8).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF4CA6A8),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
