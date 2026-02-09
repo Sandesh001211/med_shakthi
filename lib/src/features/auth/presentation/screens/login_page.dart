@@ -18,7 +18,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // Supabase Client
   final SupabaseClient supabase = Supabase.instance.client;
 
   final TextEditingController _emailController = TextEditingController();
@@ -26,6 +25,9 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  // NEW: selected role in UI
+  String _selectedRole = 'customer'; // 'customer' or 'supplier'
 
   @override
   void dispose() {
@@ -42,14 +44,13 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // 🔐 Supabase Login Logic
       final AuthResponse res = await supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
       if (res.user != null) {
-        // 🔍 Check if the logged-in user is a supplier
+        // Check if this user has a supplier record
         final supplierData = await supabase
             .from('suppliers')
             .select()
@@ -65,9 +66,10 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
 
-        // 🔀 Navigation Logic
-        if (supplierData != null) {
-          // Navigate to Supplier Dashboard
+        // Decide destination:
+        // 1) If they are in suppliers table, send to supplier dashboard
+        // 2) else go to pharmacy home
+        if (supplierData != null || _selectedRole == 'supplier') {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (BuildContext context) => const SupplierDashboard(),
@@ -75,7 +77,6 @@ class _LoginPageState extends State<LoginPage> {
             (route) => false,
           );
         } else {
-          // Navigate to User/Pharmacy Home
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (BuildContext context) => const PharmacyHomeScreen(),
@@ -87,12 +88,18 @@ class _LoginPageState extends State<LoginPage> {
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), backgroundColor: Colors.redAccent),
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -134,16 +141,19 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  const Center(child: AppLogo(size: 100)),
+                  const Center(
+                    child: AppLogo(size: 100),
+                  ),
                   const SizedBox(height: 40),
                   _label('Email'),
                   _textField(
                     controller: _emailController,
                     hint: 'emailaddress@gmail.com',
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) => value != null && value.contains('@')
-                        ? null
-                        : 'Enter valid email',
+                    validator: (value) =>
+                        value != null && value.contains('@')
+                            ? null
+                            : 'Enter valid email',
                   ),
                   const SizedBox(height: 20),
                   _label('Password'),
@@ -163,11 +173,33 @@ class _LoginPageState extends State<LoginPage> {
                         });
                       },
                     ),
-                    validator: (value) => value != null && value.length >= 6
-                        ? null
-                        : 'Minimum 6 characters',
+                    validator: (value) =>
+                        value != null && value.length >= 6
+                            ? null
+                            : 'Minimum 6 characters',
                   ),
                   const SizedBox(height: 10),
+
+                  // NEW: user-type toggle row
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _roleChip(label: 'Customer', value: 'customer'),
+                          const SizedBox(width: 6),
+                          _roleChip(label: 'Supplier', value: 'supplier'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -182,15 +214,17 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                          color: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.color
+                              ?.withOpacity(0.6),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
+                SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
@@ -225,9 +259,11 @@ class _LoginPageState extends State<LoginPage> {
                     child: Text(
                       'Social Login',
                       style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withOpacity(0.7),
                       ),
                     ),
                   ),
@@ -235,7 +271,10 @@ class _LoginPageState extends State<LoginPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _socialIcon(Icons.facebook, const Color(0xFF1877F2)),
+                      _socialIcon(
+                        Icons.facebook,
+                        const Color(0xFF1877F2),
+                      ),
                       const SizedBox(width: 20),
                       _socialIcon(
                         Icons.g_mobiledata,
@@ -265,8 +304,11 @@ class _LoginPageState extends State<LoginPage> {
                       child: RichText(
                         text: TextSpan(
                           style: TextStyle(
-                            color: Theme.of(context).textTheme.bodySmall?.color
-                                ?.withValues(alpha: 0.6),
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.color
+                                ?.withOpacity(0.6),
                             fontSize: 14,
                           ),
                           children: [
@@ -277,13 +319,13 @@ class _LoginPageState extends State<LoginPage> {
                                     .textTheme
                                     .bodySmall
                                     ?.color
-                                    ?.withValues(alpha: 0.7),
+                                    ?.withOpacity(0.7),
                               ),
                             ),
-                            TextSpan(
+                            const TextSpan(
                               text: 'Sign up',
                               style: TextStyle(
-                                color: const Color(0xFF6AA39B),
+                                color: Color(0xFF6AA39B),
                                 fontWeight: FontWeight.bold,
                                 decoration: TextDecoration.underline,
                               ),
@@ -300,15 +342,19 @@ class _LoginPageState extends State<LoginPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const SupplierSignupPage(),
+                            builder: (context) =>
+                                const SupplierSignupPage(),
                           ),
                         );
                       },
                       child: RichText(
                         text: TextSpan(
                           style: TextStyle(
-                            color: Theme.of(context).textTheme.bodySmall?.color
-                                ?.withValues(alpha: 0.6),
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.color
+                                ?.withOpacity(0.6),
                             fontSize: 14,
                           ),
                           children: [
@@ -319,13 +365,13 @@ class _LoginPageState extends State<LoginPage> {
                                     .textTheme
                                     .bodySmall
                                     ?.color
-                                    ?.withValues(alpha: 0.7),
+                                    ?.withOpacity(0.7),
                               ),
                             ),
-                            TextSpan(
+                            const TextSpan(
                               text: 'Register as Supplier',
                               style: TextStyle(
-                                color: const Color(0xFF6AA39B),
+                                color: Color(0xFF6AA39B),
                                 fontWeight: FontWeight.bold,
                                 decoration: TextDecoration.underline,
                               ),
@@ -339,6 +385,41 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Small pill buttons for role selection
+  Widget _roleChip({required String label, required String value}) {
+    final bool isSelected = _selectedRole == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedRole = value;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF6AA39B)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.color
+                ?.withOpacity(0.7),
           ),
         ),
       ),
@@ -374,9 +455,11 @@ class _LoginPageState extends State<LoginPage> {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
-          color: Theme.of(
-            context,
-          ).textTheme.bodySmall?.color?.withValues(alpha: 0.4),
+          color: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.color
+              ?.withOpacity(0.4),
         ),
         suffixIcon: suffixIcon,
         filled: true,
@@ -398,8 +481,8 @@ class _LoginPageState extends State<LoginPage> {
         color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
+            color: Colors.black.withOpacity(
+              Theme.of(context).brightness == Brightness.dark
                   ? 0.3
                   : 0.1,
             ),
