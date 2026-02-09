@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/product_model.dart';
+import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
 
 class ProductRepository {
   final SupabaseClient _supabase = Supabase.instance.client;

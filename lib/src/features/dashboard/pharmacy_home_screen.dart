@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:med_shakthi/src/features/category/category_ui.dart';
-import 'package:med_shakthi/src/features/category/category_products_page.dart';
-import 'package:med_shakthi/src/features/category/devices_page.dart';
 import 'package:med_shakthi/src/features/products/data/repositories/product_repository.dart';
-import 'package:med_shakthi/src/features/wishlist/presentation/screens/wishlist_page.dart';
 import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
-import 'package:med_shakthi/src/features/wishlist/data/models/wishlist_item_model.dart';
+import 'package:med_shakthi/src/features/wishlist/presentation/screens/wishlist_page.dart';
 import 'package:med_shakthi/src/features/cart/presentation/screens/cart_page.dart';
 import 'package:med_shakthi/src/features/orders/orders_page.dart';
 import 'package:med_shakthi/src/features/products/presentation/screens/product_page.dart';
 import 'package:provider/provider.dart';
-import '../orders/chat_screen.dart';
-import '../profile/presentation/screens/ai_assistant_page.dart';
-import '../profile/presentation/screens/chat_details_screen.dart';
 import '../profile/presentation/screens/profile_screen.dart';
 import 'package:med_shakthi/src/features/cart/data/cart_data.dart';
 import 'package:med_shakthi/src/features/cart/data/cart_item.dart';
 import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:med_shakthi/src/features/search/search_page.dart';
+import 'package:med_shakthi/src/features/chat_support/chat_support_entry.dart';
+import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
+
+
 
 /// This screen implements the "Med Shakti home page" for Retailers
 class PharmacyHomeScreen extends StatefulWidget {
@@ -28,47 +25,107 @@ class PharmacyHomeScreen extends StatefulWidget {
   State<PharmacyHomeScreen> createState() => _PharmacyHomeScreenState();
 }
 
+class WishlistServiceSingleton {
+  static final WishlistService instance = WishlistService(userId: 'demo-user');
+}
+
 class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
-  // State allows us to track dynamic changes, like the selected tab in the navigation bar.
   int _selectedIndex = 0;
   final ProductRepository _productRepo = ProductRepository();
+  final WishlistService wishlistService = WishlistServiceSingleton.instance;
 
-  @override
-  void initState() {
-    super.initState();
-    // Fetch user wishlist on init
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WishlistService>().fetchWishlist();
-    });
-  }
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final SupabaseClient supabase = Supabase.instance.client;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      key: _scaffoldKey,
+      backgroundColor: Colors.grey[50],
+      drawer: _buildDrawer(context), // ✅ Drawer added
       body: IndexedStack(
         index: _selectedIndex,
         children: [
           _buildHomeContent(),
           const CategoryPageNew(),
-          const WishlistPage(),
+          WishlistPage(wishlistService: wishlistService),
           const OrdersPage(),
           const AccountPage(),
         ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AiAssistantPage()),
-          );
-        },
-        backgroundColor: const Color(0xFF5A9CA0),
-        child: const Icon(Icons.smart_toy, color: Colors.white, size: 28),
+    );
+  }
+
+  // ===================== DRAWER =====================
+
+  Widget _buildDrawer(BuildContext context) {
+    final user = supabase.auth.currentUser;
+
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: const Text('Pharmacy Name'),
+              accountEmail: Text(user?.email ?? ''),
+              currentAccountPicture: const CircleAvatar(
+                child: Icon(Icons.person),
+              ),
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AccountPage()),
+                );
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.chat_bubble_outline),
+              title: const Text('Chat Support'),
+              onTap: () {
+                Navigator.pop(context); // close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ChatSupportEntryPage(),
+                  ),
+                );
+              },
+            ),
+
+            const Spacer(),
+
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: _handleLogout, // ✅ LOGOUT WORKING
+            ),
+          ],
+        ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  // ===================== LOGOUT =====================
+
+  Future<void> _handleLogout() async {
+    await supabase.auth.signOut();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
     );
   }
 
@@ -80,12 +137,11 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            _buildTopBar(),
-            // Top Bar
+            _buildTopBar(), // Top Bar
             const SizedBox(height: 24),
             // MODIFIED: Switched back to RecentPurchaseCard
             // When no order exists, this card will show the Promo Banner design.
-            const PromoBannerSlider(),
+            const RecentPurchaseCard(),
             const SizedBox(height: 24),
             _buildSectionTitle("Categories", "See All", () {
               setState(() => _selectedIndex = 1);
@@ -106,147 +162,67 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
   // --- WIDGETS ---
 
-  /// Builds the top bar containing the Scan button, Search bar, and Cart button.
   Widget _buildTopBar() {
-    final theme = Theme.of(context);
     return Row(
       children: [
-        // 👤 PROFILE ICON (replaced scanner)
         GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AccountPage()),
-            );
-          },
+          onTap: () => _scaffoldKey.currentState?.openDrawer(), // ✅ open drawer
           child: Container(
             height: 50,
             width: 50,
             decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(14),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(
-                  color: theme.shadowColor.withValues(alpha: 0.1),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6),
               ],
             ),
-            child: Icon(
-              Icons.person_outline,
-              color: theme.iconTheme.color,
-              size: 26,
-            ),
+            child: const Icon(Icons.menu),
           ),
         ),
-
         const SizedBox(width: 12),
-
-        //  SEARCH BAR
         Expanded(
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SearchPage()),
-              );
-            },
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search, color: theme.iconTheme.color?.withValues(alpha: 0.6)),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Search medicine",
-                      style: TextStyle(
-                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.6), 
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.camera_alt_outlined, color: theme.iconTheme.color),
-                ],
-              ),
+          child: Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.search, color: Colors.grey),
+                SizedBox(width: 8),
+                Text("Search medicine",
+                    style: TextStyle(color: Colors.grey)),
+              ],
             ),
           ),
         ),
-
         const SizedBox(width: 12),
-
-        //  CART ICON WITH BADGE
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CartPage()),
-                );
-              },
-              child: Container(
-                height: 50,
-                width: 50,
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.shadowColor.withValues(alpha: 0.1),
-                      spreadRadius: 1,
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.shopping_cart_outlined,
-                  color: theme.iconTheme.color,
-                  size: 24,
-                ),
-              ),
-            ),
-
-            //  CART BADGE
-            Consumer<CartData>(
-              builder: (context, cartData, child) {
-                if (cartData.items.isEmpty) return const SizedBox.shrink();
-                return Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1E88E5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${cartData.items.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+        IconButton(
+          icon: const Icon(Icons.shopping_cart_outlined),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CartPage()),
+            );
+          },
+        )
       ],
     );
   }
+
+void _openProfileMenu(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _ProfileMenuSheet(),
+  );
+}
+
 
   /// Reusable section title with "See All" button
   Widget _buildSectionTitle(
@@ -259,11 +235,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
       children: [
         Text(
           title,
-          style: TextStyle(
-            fontSize: 18, 
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.titleLarge?.color,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         GestureDetector(
           onTap: onAction,
@@ -282,20 +254,13 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
   /// Builds the horizontal list of circular categories
   Widget _buildCategoriesList() {
-    final theme = Theme.of(context);
     return SizedBox(
-      height: 110, // Increased from 100
+      height: 100,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           // Placeholder for categories, you can map real data here later
           _buildCategoryItem(Icons.medication, "Medicines", Colors.blue[100]!),
-          const SizedBox(width: 20),
-          _buildCategoryItem(
-            Icons.medical_services,
-            "Devices",
-            Colors.purple[100]!,
-          ),
           const SizedBox(width: 20),
           _buildCategoryItem(Icons.favorite, "Health", Colors.red[100]!),
           const SizedBox(width: 20),
@@ -308,67 +273,39 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
   }
 
   Widget _buildCategoryItem(IconData icon, String label, Color color) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: () {
-        // Navigate to CategoryProductsPage when Medicines is tapped
-        if (label == "Medicines") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  const CategoryProductsPage(categoryName: "Medicines"),
-            ),
-          );
-        } else if (label == "Devices") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const DevicesPage()),
-          );
-        }
-        // You can add navigation for other categories here as well
-      },
-      child: Column(
-        children: [
-          Container(
-            height: 60,
-            width: 60,
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: theme.shadowColor.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                icon, 
-                color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black54, 
-                size: 28,
+    return Column(
+      children: [
+        Container(
+          height: 60,
+          width: 60,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.05),
+                blurRadius: 10,
+                spreadRadius: 2,
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).textTheme.bodyMedium?.color,
-            ),
+          child: Center(child: Icon(icon, color: Colors.black54, size: 28)),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   /// Fetches Real Products from Supabase
   Widget _buildProductCard(Product product) {
-    final theme = Theme.of(context);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -379,11 +316,11 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
         margin: const EdgeInsets.only(right: 16),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: theme.cardColor,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: theme.shadowColor.withValues(alpha: 0.08),
+              color: Colors.grey.withOpacity(0.08),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -398,7 +335,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                   product.image,
                   fit: BoxFit.contain,
                   errorBuilder: (c, e, s) => Container(
-                    color: theme.brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                    color: Colors.grey[100],
                     child: const Center(child: Icon(Icons.image_not_supported)),
                   ),
                 ),
@@ -409,19 +346,12 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
               product.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.bold, 
-                fontSize: 14,
-                color: theme.textTheme.titleMedium?.color,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 4),
             Text(
               product.category,
-              style: TextStyle(
-                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6), 
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 8),
             Row(
@@ -429,7 +359,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                 const Icon(Icons.star, color: Colors.amber, size: 14),
                 const SizedBox(width: 4),
                 Text(
-                  product.rating.toStringAsFixed(1),
+                  "${product.rating.toStringAsFixed(1)}",
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
@@ -438,17 +368,12 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
-                  // Prevent price overflow
-                  child: Text(
-                    "₹${product.price.toStringAsFixed(2)}",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: theme.textTheme.bodyLarge?.color,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                Text(
+                  "₹${product.price.toStringAsFixed(2)}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.black87,
                   ),
                 ),
                 InkWell(
@@ -492,9 +417,8 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
   /// Fetches Real Products from Supabase
   Widget _buildRealBestsellersList() {
-    final theme = Theme.of(context);
     return SizedBox(
-      height: 280, // Increased from 260 for safety
+      height: 260,
       child: FutureBuilder<List<Product>>(
         future: _productRepo.getProducts(),
         builder: (context, snapshot) {
@@ -522,7 +446,6 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
     );
   }
 
-  final SupabaseClient supabase = Supabase.instance.client;
 
   Future<List<Product>> _fetchProducts() async {
     final res = await supabase
@@ -542,14 +465,14 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
-            height: 280, // Increased from 260
+            height: 260,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
         if (snapshot.hasError) {
           return SizedBox(
-            height: 280, // Increased from 260
+            height: 260,
             child: Center(child: Text("Error: ${snapshot.error}")),
           );
         }
@@ -558,26 +481,19 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
         if (products.isEmpty) {
           return const SizedBox(
-            height: 280, // Increased from 260
+            height: 260,
             child: Center(child: Text("No products available")),
           );
         }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.7,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: products.length > 10 ? 10 : products.length,
+        return SizedBox(
+          height: 260,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            itemCount: products.length,
             itemBuilder: (context, index) {
               final product = products[index];
-              final theme = Theme.of(context);
 
               return GestureDetector(
                 //  Product details page open (same as before)
@@ -588,13 +504,15 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                   ),
                 ),
                 child: Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.cardColor,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: theme.shadowColor.withValues(alpha: 0.08),
+                        color: Colors.grey.withOpacity(0.08),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -603,66 +521,19 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      //  Image with heart icon
+                      //  Image
                       Expanded(
-                        child: Stack(
-                          children: [
-                            Center(
-                              child: Image.network(
-                                product.image,
-                                fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => Container(
-                                  color: Colors.grey[100],
-                                  child: const Center(
-                                    child: Icon(Icons.image_not_supported),
-                                  ),
-                                ),
+                        child: Center(
+                          child: Image.network(
+                            product.image,
+                            fit: BoxFit.contain,
+                            errorBuilder: (c, e, s) => Container(
+                              color: Colors.grey[100],
+                              child: const Center(
+                                child: Icon(Icons.image_not_supported),
                               ),
                             ),
-                            // Heart icon for wishlist
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: Consumer<WishlistService>(
-                                builder: (context, wishlistService, child) {
-                                  final isInWishlist = wishlistService
-                                      .isInWishlist(product.id);
-                                  return GestureDetector(
-                                    onTap: () {
-                                      if (isInWishlist) {
-                                        wishlistService.removeFromWishlist(
-                                          product.id,
-                                        );
-                                      } else {
-                                        // Convert Product to WishlistItem
-                                        final wishlistItem = WishlistItem(
-                                          id: product.id,
-                                          name: product.name,
-                                          price: product.price,
-                                          image: product.image,
-                                        );
-                                        wishlistService.addToWishlist(
-                                          wishlistItem,
-                                        );
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Icon(
-                                        isInWishlist
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        color: isInWishlist
-                                            ? Colors.red
-                                            : Colors.grey[700],
-                                        size: 22,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
 
@@ -698,10 +569,10 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                           const Icon(Icons.star, color: Colors.amber, size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            product.rating.toStringAsFixed(1),
-                            style: TextStyle(
+                            "${product.rating.toStringAsFixed(1)}",
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+                              color: Colors.grey,
                             ),
                           ),
                         ],
@@ -713,17 +584,12 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Flexible(
-                            // Prevent price overflow in list Bestseller
-                            child: Text(
-                              "₹${product.price.toStringAsFixed(2)}",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                          Text(
+                            "₹${product.price.toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
                             ),
                           ),
 
@@ -735,8 +601,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                               // so we do: onTapDown trick not needed, just use InkWell here
 
                               final cartItem = CartItem(
-                                id: product.id,
-                                //  UUID from Supabase
+                                id: product.id, //  UUID from Supabase
                                 name: product.name,
                                 title: product.name,
                                 brand: product.category,
@@ -790,21 +655,20 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
   /// Custom Bottom Navigation Bar
   Widget _buildBottomNavigationBar() {
-    final theme = Theme.of(context);
     final navItems = [
       {'icon': Icons.home, 'label': 'Home'},
       {'icon': Icons.grid_view, 'label': 'Category'},
       {'icon': Icons.favorite_border, 'label': 'Wishlist'},
-      {'icon': Icons.chat_bubble_outline, 'label': 'Chatbot'},
       {'icon': Icons.receipt_long, 'label': 'Order'},
+      {'icon': Icons.person_outline, 'label': 'Profile'},
     ];
 
     return Container(
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -835,39 +699,39 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
     return GestureDetector(
       onTap: () {
         if (index == 4) {
-          //  Orders Page
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => OrdersPage()),
-          );
-        } else if (index == 3) {
-          //  Chatbot Page
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const ChatDetailScreen(clientName: 'Abhishek'),
+              builder: (context) =>
+                  const AccountPage(), // Ensure this widget name matches your class
             ),
           );
+        } else if (index == 3) {
+          // --- NAVIGATION TO ORDER SCREEN ---
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => OrdersPage()),
+          );
         } else {
-          // Home / Category / Wishlist
+          // For other buttons, just update the UI selection
           setState(() => _selectedIndex = index);
         }
       },
       child: Container(
-        color: Colors.transparent,
+        color: Colors.transparent, // Increases touch area
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF5A9CA0) : Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
+              color: isSelected ? const Color(0xFF5A9CA0) : Colors.grey,
               size: 26,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? const Color(0xFF5A9CA0) : Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
+                color: isSelected ? const Color(0xFF5A9CA0) : Colors.grey,
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -875,155 +739,6 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class PromoBannerSlider extends StatefulWidget {
-  const PromoBannerSlider({super.key});
-
-  @override
-  State<PromoBannerSlider> createState() => _PromoBannerSliderState();
-}
-
-class _PromoBannerSliderState extends State<PromoBannerSlider> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-
-  final List<Map<String, dynamic>> _banners = [
-    {
-      "title": "PAYDAY SALE",
-      "subtitle": "LOWEST PRICES ARE LIVE",
-      "description": "Up to 60% Off",
-      "colors": [Color(0xFF5A9CA0), Color(0xFF3A6B6E)],
-      "icon": Icons.shopping_bag_outlined,
-    },
-    {
-      "title": "SUPER DEAL",
-      "subtitle": "FLAT 25% OFF ON MEDICINES",
-      "description": "Use code: MED25",
-      "colors": [Color(0xFF1E88E5), Color(0xFF1565C0)],
-      "icon": Icons.local_offer_outlined,
-    },
-    {
-      "title": "HEALTH CHECKUP",
-      "subtitle": "FULL BODY SCREENING",
-      "description": "Book Now & Save ₹500",
-      "colors": [Color(0xFFE53935), Color(0xFFC62828)],
-      "icon": Icons.health_and_safety_outlined,
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 170,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            itemCount: _banners.length,
-            itemBuilder: (context, index) {
-              final banner = _banners[index];
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: LinearGradient(
-                    colors: banner["colors"],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: banner["colors"][0].withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.amber,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              banner["title"],
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            banner["subtitle"],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            banner["description"],
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      banner["icon"],
-                      color: Colors.white.withValues(alpha: 0.2),
-                      size: 80,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _banners.length,
-            (index) => Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: _currentPage == index ? 20 : 8,
-              height: 8,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: _currentPage == index
-                    ? const Color(0xFF5A9CA0)
-                    : Colors.grey.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1117,7 +832,7 @@ class _RecentPurchaseCardState extends State<RecentPurchaseCard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF5A9CA0).withValues(alpha: 0.4),
+            color: const Color(0xFF5A9CA0).withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -1139,7 +854,7 @@ class _RecentPurchaseCardState extends State<RecentPurchaseCard> {
   /// Displays the actual Recent Purchase details if an order exists.
   Widget _orderUI() {
     return Container(
-      constraints: const BoxConstraints(minHeight: 170),
+      height: 170,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
@@ -1163,8 +878,6 @@ class _RecentPurchaseCardState extends State<RecentPurchaseCard> {
           Text(
             "Order ID: ${recentOrder!['id']}",
             style: const TextStyle(color: Colors.white70),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
           Text(
             "Items: ${recentOrder!['total_items'] ?? 0}",
@@ -1174,7 +887,7 @@ class _RecentPurchaseCardState extends State<RecentPurchaseCard> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -1191,3 +904,76 @@ class _RecentPurchaseCardState extends State<RecentPurchaseCard> {
     );
   }
 }
+class _ProfileMenuSheet extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            height: 4,
+            width: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Profile header
+          ListTile(
+            leading: const CircleAvatar(
+              radius: 24,
+              child: Icon(Icons.person),
+            ),
+            title: const Text(
+              'Pharmacy Name',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: const Text('pharmacy@email.com'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AccountPage(),
+                ),
+              );
+            },
+          ),
+
+          const Divider(),
+
+          // Chat support
+          ListTile(
+            leading: const Icon(Icons.chat_bubble_outline),
+            title: const Text('Chat Support'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ChatSupportEntryPage(),
+                ),
+              );
+            },
+          ),
+
+          // Logout (optional now, safe placeholder)
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: logout flow
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
