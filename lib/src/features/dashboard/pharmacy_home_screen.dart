@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:med_shakthi/src/features/category/category_ui.dart';
 import 'package:med_shakthi/src/features/category/category_products_page.dart';
 import 'package:med_shakthi/src/features/category/devices_page.dart';
+import 'package:med_shakthi/src/features/health/health_page.dart';
+import 'package:med_shakthi/src/features/vitamins/vitamins_page.dart';
 import 'package:med_shakthi/src/features/products/data/repositories/product_repository.dart';
 import 'package:med_shakthi/src/features/wishlist/presentation/screens/wishlist_page.dart';
 import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
@@ -327,6 +329,16 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const DevicesPage()),
+          );
+        } else if (label == "Health") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const HealthPage()),
+          );
+        } else if (label == "Vitamins") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const VitaminsPage()),
           );
         }
         // You can add navigation for other categories here as well
