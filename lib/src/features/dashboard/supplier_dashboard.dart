@@ -7,6 +7,7 @@ import '../profile/presentation/screens/supplier_payout_page.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/theme_provider.dart';
 import '../supplier/inventory/ui/add_product_page.dart';
+import '../supplier/sales/sales_analytics_page.dart';
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});
@@ -115,11 +116,11 @@ class SupplierDashboardHome extends StatelessWidget {
           const SizedBox(height: 20),
           _buildPromoBanner(context),
           const SizedBox(height: 30),
-          _buildSectionHeader("Categories"),
+          _buildSectionHeader("Categories", context: context),
           const SizedBox(height: 15),
           _buildCategoryList(context),
           const SizedBox(height: 30),
-          _buildSectionHeader("Performance Stats"),
+          _buildSectionHeader("Performance Stats", context: context),
           const SizedBox(height: 15),
           _buildPerformanceGrid(context),
           const SizedBox(height: 100), // ✅ CHANGED: Space for FAB
@@ -230,16 +231,16 @@ class SupplierDashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(String title, {BuildContext? context}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2D2D2D),
+            color: context != null ? Theme.of(context).textTheme.bodyLarge?.color : const Color(0xFF2D2D2D),
           ),
         ),
         const Text(
@@ -290,8 +291,9 @@ class SupplierDashboardHome extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const SupplierPayoutPage()),
                 );
               } else if (label == "Sales") {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Sales page coming soon")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SalesAnalyticsPage()),
                 );
               }
             },
@@ -312,9 +314,9 @@ class SupplierDashboardHome extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black54,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -361,7 +363,9 @@ class SupplierDashboardHome extends StatelessWidget {
             height: 55,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FA),
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white.withOpacity(0.05)
+                  : const Color(0xFFF7F8FA),
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(Icons.bar_chart, color: Colors.grey, size: 40),
@@ -370,7 +374,11 @@ class SupplierDashboardHome extends StatelessWidget {
           Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 12)),
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold, 
+              fontSize: 16,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
           ),
           const Spacer(),
           Row(
