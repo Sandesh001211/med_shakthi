@@ -17,10 +17,13 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
 
   String? selectedSubCategory;
   bool loadingProducts = false;
+  bool loadingCustomCats = false;
 
   List<Map<String, dynamic>> products = [];
+  List<String> customCategories = [];
 
-  final List<Map<String, dynamic>> categories = [
+  /// 🔹 STATIC CATEGORIES (unchanged UI)
+  final List<Map<String, dynamic>> baseCategories = [
     {
       "name": "Medicines",
       "icon": Icons.medication_outlined,
@@ -48,6 +51,46 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
     },
   ];
 
+  List<Map<String, dynamic>> categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCustomCategories();
+  }
+
+  /// 🔥 FETCH CUSTOM CATEGORIES FOR "OTHER"
+  Future<void> fetchCustomCategories() async {
+    setState(() => loadingCustomCats = true);
+
+    final response = await supabase
+        .from('products')
+        .select('custom_category')
+        .eq('category', 'other')
+        .not('custom_category', 'is', null);
+
+    final set = <String>{};
+    for (final row in response) {
+      set.add(row['custom_category']);
+    }
+
+    setState(() {
+      customCategories = set.toList();
+
+      categories = [
+        ...baseCategories,
+        {
+          "name": "Other",
+          "icon": Icons.category_outlined,
+          "items": customCategories,
+        },
+      ];
+
+      loadingCustomCats = false;
+    });
+  }
+
+  /// 🔥 FETCH PRODUCTS (NORMAL + OTHER)
   Future<void> fetchProducts({
     required String category,
     required String subCategory,
@@ -57,12 +100,23 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
       products.clear();
     });
 
-    final response = await supabase
-        .from('products')
-        .select()
-        .eq('category', category)
-        .eq('sub_category', subCategory)
-        .limit(50); // Optimization: Limit results to 50 for faster loading
+    late final List response;
+
+    if (category.toLowerCase() == 'other') {
+      response = await supabase
+          .from('products')
+          .select()
+          .eq('category', 'other')
+          .eq('custom_category', subCategory)
+          .limit(50);
+    } else {
+      response = await supabase
+          .from('products')
+          .select()
+          .eq('category', category)
+          .eq('sub_category', subCategory)
+          .limit(50);
+    }
 
     setState(() {
       products = List<Map<String, dynamic>>.from(response);
@@ -72,6 +126,12 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (loadingCustomCats) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final selectedCategory = categories[selectedCategoryIndex];
 
     return Scaffold(
@@ -80,7 +140,6 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
         elevation: 0,
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         centerTitle: true,
-        automaticallyImplyLeading: false,
         title: Text(
           "Categories",
           style: TextStyle(
@@ -88,167 +147,130 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
           ),
         ),
       ),
-      body: Column(
+      body: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "Search categories...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Theme.of(context).cardColor,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onHorizontalDragEnd: (details) {
-                if (details.primaryVelocity! > 500) {
-                  setState(() => sidebarVisible = true);
-                } else if (details.primaryVelocity! < -500) {
-                  setState(() => sidebarVisible = false);
-                }
-              },
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: sidebarVisible ? 110.0 : 0.0,
-                    color: Theme.of(context).cardColor,
-                    child: sidebarVisible
-                        ? ListView.builder(
-                            itemCount: categories.length,
-                            itemBuilder: (context, index) {
-                              final cat = categories[index];
-                              final isSelected = index == selectedCategoryIndex;
+          /// 🔹 SIDEBAR
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: sidebarVisible ? 110 : 0,
+            color: Theme.of(context).cardColor,
+            child: ListView.builder(
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final cat = categories[index];
+                final isSelected = index == selectedCategoryIndex;
 
-                              return InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    selectedCategoryIndex = index;
-                                    selectedSubCategory = null;
-                                    products.clear();
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? themeColor.withValues(alpha: 0.12)
-                                        : Theme.of(context).cardColor,
-                                    border: Border(
-                                      left: BorderSide(
-                                        color: isSelected
-                                            ? themeColor
-                                            : Colors.transparent,
-                                        width: 4,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Icon(
-                                        cat["icon"],
-                                        color: isSelected
-                                            ? themeColor
-                                            : Colors.grey,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        cat["name"],
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            selectedSubCategory == null
-                                ? selectedCategory["name"]
-                                : "${selectedCategory["name"]} → $selectedSubCategory",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: loadingProducts
-                                ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                : GridView.builder(
-                                    itemCount: selectedSubCategory == null
-                                        ? (selectedCategory["items"] as List)
-                                              .length
-                                        : products.length,
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 2,
-                                          mainAxisSpacing: 14,
-                                          crossAxisSpacing: 14,
-                                          childAspectRatio: 1.2,
-                                        ),
-                                    itemBuilder: (context, i) {
-                                      if (selectedSubCategory == null) {
-                                        final itemName =
-                                            (selectedCategory["items"]
-                                                as List)[i];
-                                        return InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              selectedSubCategory = itemName;
-                                            });
-                                            fetchProducts(
-                                              category:
-                                                  selectedCategory["name"],
-                                              subCategory: itemName,
-                                            );
-                                          },
-                                          child: _buildTile(
-                                            title: itemName,
-                                            icon: _getSubCategoryIcon(itemName),
-                                          ),
-                                        );
-                                      } else {
-                                        final product = products[i];
-                                        return _buildTile(
-                                          title: product['name'],
-                                          subtitle:
-                                              "₹${product['price'] ?? '--'}",
-                                          icon: Icons.medication,
-                                        );
-                                      }
-                                    },
-                                  ),
-                          ),
-                        ],
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      selectedCategoryIndex = index;
+                      selectedSubCategory = null;
+                      products.clear();
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? themeColor.withValues(alpha: 0.12)
+                          : Theme.of(context).cardColor,
+                      border: Border(
+                        left: BorderSide(
+                          color:
+                              isSelected ? themeColor : Colors.transparent,
+                          width: 4,
+                        ),
                       ),
                     ),
+                    child: Column(
+                      children: [
+                        Icon(cat["icon"],
+                            color: isSelected
+                                ? themeColor
+                                : Colors.grey),
+                        const SizedBox(height: 6),
+                        Text(
+                          cat["name"],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          /// 🔹 CONTENT
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    selectedSubCategory == null
+                        ? selectedCategory["name"]
+                        : "${selectedCategory["name"]} → $selectedSubCategory",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: loadingProducts
+                        ? const Center(
+                            child: CircularProgressIndicator(),
+                          )
+                        : GridView.builder(
+                            itemCount: selectedSubCategory == null
+                                ? (selectedCategory["items"] as List).length
+                                : products.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 14,
+                              crossAxisSpacing: 14,
+                              childAspectRatio: 1.2,
+                            ),
+                            itemBuilder: (context, i) {
+                              if (selectedSubCategory == null) {
+                                final itemName =
+                                    (selectedCategory["items"] as List)[i];
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedSubCategory = itemName;
+                                    });
+                                    fetchProducts(
+                                      category:
+                                          selectedCategory["name"],
+                                      subCategory: itemName,
+                                    );
+                                  },
+                                  child: _buildTile(
+                                    title: itemName,
+                                    icon: Icons.category_outlined,
+                                  ),
+                                );
+                              } else {
+                                final product = products[i];
+                                return _buildTile(
+                                  title: product['name'],
+                                  subtitle:
+                                      "₹${product['price'] ?? '--'}",
+                                  icon: Icons.medication,
+                                );
+                              }
+                            },
+                          ),
                   ),
                 ],
               ),
@@ -294,66 +316,5 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
         ],
       ),
     );
-  }
-
-  IconData _getSubCategoryIcon(String subCategory) {
-    switch (subCategory) {
-      // Medicines
-      case "Tablets":
-        return Icons.tablet;
-      case "Syrups":
-        return Icons.liquor;
-      case "Capsules":
-        return Icons.medication;
-      case "Injections":
-        return Icons.vaccines;
-      case "Pain Relief":
-        return Icons.healing;
-
-      // Supplements
-      case "Protein":
-        return Icons.fitness_center;
-      case "Vitamins":
-        return Icons.local_pharmacy;
-      case "Omega 3":
-        return Icons.water_drop;
-      case "Weight Gain":
-        return Icons.monitor_weight;
-      case "Immunity":
-        return Icons.shield;
-
-      // Personal Care
-      case "Skin Care":
-        return Icons.face;
-      case "Hair Care":
-        return Icons.content_cut;
-      case "Body Care":
-        return Icons.spa;
-      case "Cosmetics":
-        return Icons.brush;
-
-      // Baby Care
-      case "Diapers":
-        return Icons.child_care;
-      case "Baby Food":
-        return Icons.rice_bowl;
-      case "Baby Lotion":
-        return Icons.clean_hands;
-      case "Baby Soap":
-        return Icons.soap;
-
-      // Devices
-      case "BP Monitor":
-        return Icons.monitor_heart;
-      case "Thermometer":
-        return Icons.thermostat;
-      case "Glucometer":
-        return Icons.bloodtype;
-      case "Nebulizer":
-        return Icons.air;
-
-      default:
-        return Icons.category_outlined;
-    }
   }
 }

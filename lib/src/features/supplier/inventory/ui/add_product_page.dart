@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddProductPage extends StatefulWidget {
-  final Map<String, dynamic>? product; // If null, it's Add mode
+  final Map<String, dynamic>? product;
 
   const AddProductPage({super.key, this.product});
 
@@ -28,6 +28,10 @@ class _AddProductPageState extends State<AddProductPage> {
   final supplierIdController = TextEditingController(text: 'Loading...');
   final expiryController = TextEditingController();
 
+  /// CUSTOM CATEGORY CONTROLLERS
+  final customCategoryController = TextEditingController();
+  final customSubCategoryController = TextEditingController();
+
   /// CATEGORY + SUBCATEGORY
   String category = 'Medicines';
   String subCategory = 'Tablets';
@@ -44,6 +48,7 @@ class _AddProductPageState extends State<AddProductPage> {
     'Personal care': ['Skin care', 'Hair care', 'Body care', 'Cosmetics'],
     'Baby care': ['Diapers', 'Baby Food', 'Baby Lotion', 'Baby Soap'],
     'Devices': ['BP Monitor', 'Thermometer', 'Glucometer', 'Nebulizer'],
+    'Other (Custom)': [],
   };
 
   File? imageFile;
@@ -68,15 +73,16 @@ class _AddProductPageState extends State<AddProductPage> {
     unitSizeController.text = p['unit_size'] ?? '';
     expiryController.text = p['expiry_date'] ?? '';
 
-    // Set drop-downs if valid
     final cat = p['category'];
-    if (cat != null && categoryMap.containsKey(cat)) {
+    if (cat == 'other') {
+      category = 'Other (Custom)';
+      customCategoryController.text = p['custom_category'] ?? '';
+      customSubCategoryController.text = p['custom_sub_category'] ?? '';
+    } else if (categoryMap.containsKey(cat)) {
       category = cat;
       final sub = p['sub_category'];
       if (categoryMap[category]!.contains(sub)) {
         subCategory = sub;
-      } else {
-        subCategory = categoryMap[category]!.first;
       }
     }
 
@@ -87,21 +93,17 @@ class _AddProductPageState extends State<AddProductPage> {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    try {
-      final data = await supabase
-          .from('suppliers')
-          .select('supplier_code')
-          .eq('user_id', user.id)
-          .maybeSingle();
+    final data = await supabase
+        .from('suppliers')
+        .select('supplier_code')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (mounted) {
-        setState(() {
-          supplierCode = data?['supplier_code'];
-          supplierIdController.text = supplierCode ?? 'Unknown';
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching supplier code: $e');
+    if (mounted) {
+      setState(() {
+        supplierCode = data?['supplier_code'];
+        supplierIdController.text = supplierCode ?? 'Unknown';
+      });
     }
   }
 
@@ -117,20 +119,13 @@ class _AddProductPageState extends State<AddProductPage> {
     if (imageFile == null) return null;
 
     final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    try {
-      await supabase.storage
-          .from('product-images')
-          .upload(
-            fileName,
-            imageFile!,
-            fileOptions: const FileOptions(upsert: true),
-          );
+    await supabase.storage.from('product-images').upload(
+          fileName,
+          imageFile!,
+          fileOptions: const FileOptions(upsert: true),
+        );
 
-      return supabase.storage.from('product-images').getPublicUrl(fileName);
-    } catch (e) {
-      debugPrint('Image upload error: $e');
-      return null;
-    }
+    return supabase.storage.from('product-images').getPublicUrl(fileName);
   }
 
   Future<void> saveProduct() async {
@@ -141,16 +136,25 @@ class _AddProductPageState extends State<AddProductPage> {
     try {
       final imageUrl = await uploadImage() ?? existingImageUrl;
 
+      final bool isCustom = category == 'Other (Custom)';
+
       final data = {
-        'name': nameController.text,
-        'generic_name': genericController.text,
-        'brand': brandController.text,
-        'sku': skuController.text,
+        'name': nameController.text.trim(),
+        'generic_name': genericController.text.trim(),
+        'brand': brandController.text.trim(),
+        'sku': skuController.text.trim(),
         'price': double.parse(priceController.text),
-        'unit_size': unitSizeController.text,
+        'unit_size': unitSizeController.text.trim(),
         'expiry_date': expiryController.text,
-        'category': category,
-        'sub_category': subCategory,
+        'category': isCustom ? 'other' : category.toLowerCase().trim(),
+        'sub_category':
+            isCustom ? null : subCategory.toLowerCase().trim(),
+        'custom_category':
+            isCustom ? customCategoryController.text.trim().toLowerCase() : null,
+        'custom_sub_category': isCustom &&
+                customSubCategoryController.text.isNotEmpty
+            ? customSubCategoryController.text.trim().toLowerCase()
+            : null,
         'supplier_code': supplierCode,
         'image_url': imageUrl,
       };
@@ -165,25 +169,20 @@ class _AddProductPageState extends State<AddProductPage> {
       }
 
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(isEditing ? 'Product Updated!' : 'Product Added!'),
           backgroundColor: Colors.green,
         ),
       );
-
       Navigator.pop(context);
     } catch (e) {
-      debugPrint('Save product error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -206,17 +205,7 @@ class _AddProductPageState extends State<AddProductPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
-          isEditing ? 'Edit Product' : 'Add New Product',
-          style: TextStyle(
-            color: Theme.of(context).appBarTheme.foregroundColor,
-          ),
-        ),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        elevation: 0,
-        iconTheme: IconThemeData(
-          color: Theme.of(context).appBarTheme.foregroundColor,
-        ),
+        title: Text(isEditing ? 'Edit Product' : 'Add New Product'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -235,11 +224,17 @@ class _AddProductPageState extends State<AddProductPage> {
                   Expanded(child: _input("Unit Size", unitSizeController)),
                 ],
               ),
-              _input("Price", priceController, keyboard: TextInputType.number),
+              _input("Price", priceController,
+                  keyboard: TextInputType.number),
               _supplierIdField(),
               _expiryField(),
               _categoryDropdown(),
-              _subCategoryDropdown(),
+              if (category != 'Other (Custom)') _subCategoryDropdown(),
+              if (category == 'Other (Custom)') ...[
+                _input("Custom Category", customCategoryController),
+                _input("Custom Sub Category (optional)",
+                    customSubCategoryController),
+              ],
               const SizedBox(height: 20),
               _submitButton(),
             ],
@@ -255,11 +250,6 @@ class _AddProductPageState extends State<AddProductPage> {
       child: TextFormField(
         controller: supplierIdController,
         readOnly: true,
-        style: TextStyle(
-          color: Theme.of(
-            context,
-          ).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-        ),
         decoration: _inputDecoration("Supplier ID"),
       ),
     );
@@ -273,9 +263,8 @@ class _AddProductPageState extends State<AddProductPage> {
         readOnly: true,
         onTap: pickExpiryDate,
         validator: (v) => v!.isEmpty ? 'Select expiry date' : null,
-        decoration: _inputDecoration(
-          "Expiry Date",
-        ).copyWith(suffixIcon: const Icon(Icons.calendar_today)),
+        decoration: _inputDecoration("Expiry Date")
+            .copyWith(suffixIcon: const Icon(Icons.calendar_today)),
       ),
     );
   }
@@ -284,7 +273,7 @@ class _AddProductPageState extends State<AddProductPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<String>(
-        initialValue: category,
+        value: category,
         decoration: _inputDecoration("Category"),
         items: categoryMap.keys
             .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -292,7 +281,9 @@ class _AddProductPageState extends State<AddProductPage> {
         onChanged: (v) {
           setState(() {
             category = v!;
-            subCategory = categoryMap[category]!.first;
+            if (categoryMap[category]!.isNotEmpty) {
+              subCategory = categoryMap[category]!.first;
+            }
           });
         },
       ),
@@ -303,7 +294,7 @@ class _AddProductPageState extends State<AddProductPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<String>(
-        initialValue: subCategory,
+        value: subCategory,
         decoration: _inputDecoration("Sub Category"),
         items: categoryMap[category]!
             .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -318,19 +309,10 @@ class _AddProductPageState extends State<AddProductPage> {
       width: double.infinity,
       height: 54,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4CA6A8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
         onPressed: _isLoading ? null : saveProduct,
         child: _isLoading
             ? const CircularProgressIndicator(color: Colors.white)
-            : const Text(
-                'Save Product',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
+            : const Text('Save Product'),
       ),
     );
   }
@@ -342,29 +324,11 @@ class _AddProductPageState extends State<AddProductPage> {
         height: 140,
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)),
         ),
         child: imageFile == null
-            ? const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text(
-                    'Tap to add product image',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              )
-            : existingImageUrl != null && imageFile == null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.network(existingImageUrl!, fit: BoxFit.cover),
-              )
+            ? const Center(child: Icon(Icons.add_a_photo))
             : ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: Image.file(imageFile!, fit: BoxFit.cover),
@@ -376,13 +340,7 @@ class _AddProductPageState extends State<AddProductPage> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(
-        color: Theme.of(
-          context,
-        ).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-      ),
       filled: true,
-      fillColor: Theme.of(context).cardColor,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -390,11 +348,8 @@ class _AddProductPageState extends State<AddProductPage> {
     );
   }
 
-  Widget _input(
-    String label,
-    TextEditingController controller, {
-    TextInputType keyboard = TextInputType.text,
-  }) {
+  Widget _input(String label, TextEditingController controller,
+      {TextInputType keyboard = TextInputType.text}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
