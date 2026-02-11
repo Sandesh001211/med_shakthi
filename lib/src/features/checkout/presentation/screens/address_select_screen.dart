@@ -375,6 +375,10 @@ class _AddressSelectScreenState extends State<AddressSelectScreen> {
                               isSelected: addressToEdit?.isSelected ?? false,
                             );
 
+                            // Capture navigator before async operation
+                            if (!mounted) return;
+                            final navigator = Navigator.of(context);
+
                             if (addressToEdit != null) {
                               await context.read<AddressStore>().updateAddress(
                                 newAddress,
@@ -386,7 +390,7 @@ class _AddressSelectScreenState extends State<AddressSelectScreen> {
                             }
 
                             if (!mounted) return;
-                            Navigator.pop(context);
+                            navigator.pop();
                           },
                           child: const Text(
                             "CONFIRM LOCATION",

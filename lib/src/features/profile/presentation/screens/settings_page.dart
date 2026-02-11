@@ -84,12 +84,16 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.logout,
             onTap: () async {
               // Clear local state
+              if (!mounted) return;
               context.read<CartData>().clearLocalStateOnly();
               context.read<WishlistService>().clearWishlist();
 
+              // Capture navigator before async operation
+              final navigator = Navigator.of(context);
+
               await supabase.auth.signOut();
               if (!mounted) return;
-              Navigator.pop(context);
+              navigator.pop();
             },
           ),
         ],

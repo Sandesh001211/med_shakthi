@@ -174,9 +174,7 @@ class _SupplierInventoryScreenState extends State<SupplierInventoryScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.blue),
-            onPressed: () {
-              // TODO: Navigate to Edit Product Page
-            },
+            onPressed: () => _editProduct(product.id),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -198,16 +196,47 @@ class _SupplierInventoryScreenState extends State<SupplierInventoryScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text("Cancel"),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(ctx);
               _deleteProduct(productId);
             },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: const Text("Delete"),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _editProduct(String productId) async {
+    try {
+      // 1. Fetch full product details (since ProductModel is lightweight)
+      final data = await _supabase
+          .from('products')
+          .select()
+          .eq('id', productId)
+          .single();
+
+      if (!mounted) return;
+
+      // 2. Navigate to AddProductPage in edit mode
+      // ignore: use_build_context_synchronously
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AddProductPage(product: data)),
+      );
+
+      // 3. Refresh list after returning
+      setState(() {});
+    } catch (e) {
+      debugPrint("Error fetching product for edit: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error loading product: $e")));
+      }
+    }
   }
 
   Widget _buildEmptyState() {
