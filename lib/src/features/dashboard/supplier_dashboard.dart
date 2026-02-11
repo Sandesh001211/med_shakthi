@@ -10,6 +10,7 @@ import '../../core/theme/theme_provider.dart';
 import '../supplier/inventory/ui/add_product_page.dart';
 import '../supplier/inventory/ui/my_products_page.dart';
 import '../supplier/sales/sales_analytics_page.dart';
+import '../banners/screens/manage_banners_screen.dart';
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});
@@ -308,6 +309,7 @@ class SupplierDashboardHome extends StatelessWidget {
 
   Widget _buildCategoryList(BuildContext context) {
     final List<Map<String, dynamic>> cats = [
+      {"icon": Icons.campaign, "label": "Banners"},
       {"icon": Icons.inventory_2, "label": "Orders"},
       {"icon": Icons.analytics, "label": "Sales"},
       {"icon": Icons.people, "label": "Clients"},
@@ -327,7 +329,12 @@ class SupplierDashboardHome extends StatelessWidget {
             borderRadius: BorderRadius.circular(50),
             onTap: () {
               //  NAVIGATION LOGIC
-              if (label == "Orders") {
+              if (label == "Banners") {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ManageBannersScreen()),
+                );
+              } else if (label == "Orders") {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const OrdersPage()),
