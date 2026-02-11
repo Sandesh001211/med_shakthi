@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
-import 'package:med_shakthi/src/features/products/data/repositories/product_repository.dart';
+import '../../../products/data/models/product_model.dart';
+import '../../../products/data/repositories/product_repository.dart';
 import 'add_product_page.dart';
 
 class SupplierInventoryScreen extends StatefulWidget {

@@ -51,7 +51,6 @@ dependencies:
   csv: ^6.0.0
   pdf: ^3.11.3
   printing: ^5.14.2
-  flutter_riverpod: ^2.5.1
 
 
 dev_dependencies:
