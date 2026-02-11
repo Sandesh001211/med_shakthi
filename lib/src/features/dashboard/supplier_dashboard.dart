@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
-import '../cart/presentation/screens/cart_page.dart';
-import '../orders/orders_page.dart';
-import '../profile/presentation/screens/chat_list_screen.dart';
-import '../profile/presentation/screens/supplier_category_page.dart';
-import '../profile/presentation/screens/supplier_payout_page.dart';
-import '../profile/presentation/screens/supplier_profile_screen.dart';
-import '../profile/presentation/screens/supplier_wishlist_page.dart';
-import '../supplier/inventory/ui/add_product_page.dart'; // ✅ ADDED FOR FAB
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// 🔁 converted to package imports
+import 'package:med_shakthi/src/features/cart/presentation/screens/cart_page.dart';
+import 'package:med_shakthi/src/features/orders/orders_page.dart';
+import 'package:med_shakthi/src/features/profile/presentation/screens/supplier_category_page.dart';
+import 'package:med_shakthi/src/features/profile/presentation/screens/supplier_payout_page.dart';
+import 'package:med_shakthi/src/features/profile/presentation/screens/supplier_profile_screen.dart';
+import 'package:med_shakthi/src/features/profile/presentation/screens/supplier_wishlist_page.dart';
+import 'package:med_shakthi/src/features/supplier/inventory/ui/add_product_page.dart';
+import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
+
+// ✅ NEW supplier chat entry point
+import 'package:med_shakthi/src/features/chat_support/supplier_chat_support_entry.dart';
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});
@@ -16,6 +22,7 @@ class SupplierDashboard extends StatefulWidget {
 
 class _SupplierDashboardState extends State<SupplierDashboard> {
   int _selectedIndex = 0;
+  final SupabaseClient supabase = Supabase.instance.client;
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
@@ -29,10 +36,78 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
     const SupplierProfileScreen(),
   ];
 
+  Future<void> _handleLogout() async {
+    await supabase.auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+
+      // ✅ DRAWER
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            children: [
+              UserAccountsDrawerHeader(
+                accountName: const Text('Supplier Shop'),
+                accountEmail: Text(supabase.auth.currentUser?.email ?? ''),
+                currentAccountPicture: const CircleAvatar(
+                  child: Icon(Icons.store),
+                ),
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SupplierProfileScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              // 🔁 Messages → Supplier chat entry point
+              ListTile(
+                leading: const Icon(Icons.message_outlined),
+                title: const Text('Messages'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SupplierChatSupportEntry(),
+                    ),
+                  );
+                },
+              ),
+
+              const Spacer(),
+
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: _handleLogout,
+              ),
+            ],
+          ),
+        ),
+      ),
+
       //  FAB ADDED - Shows on ALL tabs!
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -45,7 +120,9 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text("Add Product", style: TextStyle(color: Colors.white)),
       ),
+
       body: SafeArea(child: _pages[_selectedIndex]),
+
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF4CA6A8),
@@ -55,22 +132,10 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
         onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view),
-            label: "Category",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            label: "Wishlist",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: "Order",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: "Profile",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: "Category"),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: "Wishlist"),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: "Order"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
         ],
       ),
     );
@@ -99,7 +164,7 @@ class SupplierDashboardHome extends StatelessWidget {
           _buildSectionHeader("Performance Stats"),
           const SizedBox(height: 15),
           _buildPerformanceGrid(context),
-          const SizedBox(height: 100), // ✅ CHANGED: Space for FAB
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -108,19 +173,20 @@ class SupplierDashboardHome extends StatelessWidget {
   Widget _buildTopBar(BuildContext context) {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Icon(
-            Icons.grid_view_rounded,
-            color: Theme.of(context).iconTheme.color,
+        Builder(
+          builder: (context) => GestureDetector(
+            onTap: () => Scaffold.of(context).openDrawer(),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(Icons.menu, color: Theme.of(context).iconTheme.color),
+            ),
           ),
         ),
         const SizedBox(width: 15),
-
         Expanded(
           child: Container(
             height: 50,
@@ -138,10 +204,7 @@ class SupplierDashboardHome extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(width: 15),
-
-        //  Clickable Cart Icon
         GestureDetector(
           onTap: () {
             Navigator.push(
@@ -153,20 +216,14 @@ class SupplierDashboardHome extends StatelessWidget {
             children: [
               CircleAvatar(
                 backgroundColor: Theme.of(context).cardColor,
-                child: Icon(
-                  Icons.shopping_cart_outlined,
-                  color: Theme.of(context).iconTheme.color,
-                ),
+                child: Icon(Icons.shopping_cart_outlined, color: Theme.of(context).iconTheme.color),
               ),
               Positioned(
                 right: 0,
                 child: CircleAvatar(
                   radius: 8,
-                  backgroundColor: Color(0xFF4CA6A8),
-                  child: Text(
-                    "3",
-                    style: TextStyle(fontSize: 10, color: Colors.white),
-                  ),
+                  backgroundColor: const Color(0xFF4CA6A8),
+                  child: const Text("3", style: TextStyle(fontSize: 10, color: Colors.white)),
                 ),
               ),
             ],
@@ -188,35 +245,11 @@ class SupplierDashboardHome extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Supplier Growth",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Monthly payout is ready",
-            style: TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF4CA6A8),
-              shape: const StadiumBorder(),
-              elevation: 0,
-            ),
-            child: const Text("View Report"),
-          ),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+        Text("Supplier Growth", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+        Text("Monthly payout is ready", style: TextStyle(color: Colors.white70)),
+      ]),
     );
   }
 
@@ -224,21 +257,8 @@ class SupplierDashboardHome extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2D2D2D),
-          ),
-        ),
-        const Text(
-          "See All",
-          style: TextStyle(
-            color: Color(0xFF4CA6A8),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const Text("See All", style: TextStyle(color: Color(0xFF4CA6A8), fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -258,35 +278,20 @@ class SupplierDashboardHome extends StatelessWidget {
         itemCount: cats.length,
         separatorBuilder: (_, _) => const SizedBox(width: 25),
         itemBuilder: (context, index) {
-          final label = cats[index]['label'];
+          final label = cats[index]['label'] as String;
+          final icon = cats[index]['icon'] as IconData;
 
           return InkWell(
             borderRadius: BorderRadius.circular(50),
             onTap: () {
-              //  NAVIGATION LOGIC
-              if (label == "Orders") {
+              if (label == "Clients") {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const OrdersPage()),
-                );
-              } else if (label == "Clients") {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
-                );
-              } else if (label == "Payouts") {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SupplierPayoutPage()),
-                );
-              } else if (label == "Sales") {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Sales page coming soon")),
+                  MaterialPageRoute(builder: (_) => SupplierChatSupportEntry()),
                 );
               }
             },
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
                   padding: const EdgeInsets.all(18),
@@ -294,20 +299,10 @@ class SupplierDashboardHome extends StatelessWidget {
                     color: Theme.of(context).cardColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    cats[index]['icon'],
-                    color: const Color(0xFF4CA6A8),
-                  ),
+                  child: Icon(icon, color: const Color(0xFF4CA6A8)),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(label),
               ],
             ),
           );
@@ -317,76 +312,6 @@ class SupplierDashboardHome extends StatelessWidget {
   }
 
   Widget _buildPerformanceGrid(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 15,
-      mainAxisSpacing: 15,
-      childAspectRatio: 0.80,
-      children: [
-        _statItem(context, "Revenue", "₹ 4.5L", "Supplements", "+12%"),
-        _statItem(context, "Pending", "14 Units", "Medicine", "Alert"),
-      ],
-    );
-  }
-
-  Widget _statItem(BuildContext context, String title, String value, String sub, String badge) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 55,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FA),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: const Icon(Icons.bar_chart, color: Colors.grey, size: 40),
-          ),
-          const SizedBox(height: 10),
-          Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Color(0xFF4CA6A8),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CA6A8).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  badge,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF4CA6A8),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }

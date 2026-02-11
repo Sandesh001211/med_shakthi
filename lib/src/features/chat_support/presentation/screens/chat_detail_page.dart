@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/chat_messages_provider.dart';
 import '../providers/send_message_provider.dart';
+import '../providers/chat_repository_provider.dart';
+import '../providers/supplier_id_provider.dart';
 
 class ChatDetailPage extends ConsumerStatefulWidget {
   final String chatId;
@@ -16,6 +18,26 @@ class ChatDetailPage extends ConsumerStatefulWidget {
 
 class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   final controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _markMessagesReadIfSupplier();
+  }
+
+  Future<void> _markMessagesReadIfSupplier() async {
+    final supplierId = await ref.read(supplierIdProvider.future);
+    if (supplierId == null) return;
+
+    try {
+      await ref.read(chatRepositoryProvider).markMessagesAsRead(
+            chatId: widget.chatId,
+            supplierId: supplierId,
+          );
+    } catch (_) {
+      // ignore errors silently for now
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +74,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                             : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(m.content),
+                      child: Text(m.body),
                     ),
                   );
                 },

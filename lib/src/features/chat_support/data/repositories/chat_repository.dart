@@ -2,6 +2,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/chat_summary.dart';
 import '../models/chat_message.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:med_shakthi/src/core/providers/supabase_provider.dart';
+
+
+final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+  final SupabaseClient client = ref.watch(supabaseProvider);
+  return ChatRepository(client);
+});
 
 class ChatRepository {
   final SupabaseClient _client;
@@ -85,6 +94,91 @@ class ChatRepository {
           ),
         )
         .toList();
+  }
+
+  // ===============================
+  // Fetch chat history for supplier
+  // ===============================
+  Future<List<ChatSummary>> fetchSupplierChats(String supplierId) async {
+    final rows = await _client
+        .from('chats')
+        .select(
+          'id, order_id, supplier_id, last_message, last_message_at',
+        )
+        .eq('supplier_id', supplierId)
+        .order('last_message_at', ascending: false);
+
+    return (rows as List)
+        .map(
+          (row) => ChatSummary(
+            chatId: row['id'],
+            orderGroupId: row['order_id'],
+            supplierId: row['supplier_id'],
+            lastMessage: row['last_message'],
+            lastMessageAt: row['last_message_at'] != null
+                ? DateTime.parse(row['last_message_at'])
+                : null,
+          ),
+        )
+        .toList();
+  }
+
+  // ===============================
+  // Get unread message count for supplier per chat
+  // ===============================
+  Future<int> getUnreadCountForSupplier({
+    required String chatId,
+    required String supplierId,
+  }) async {
+    final response = await _client
+        .from('chat_messages')
+        .select('id')
+        .eq('chat_id', chatId)
+        .eq('is_read', false)
+        .neq('sender_id', supplierId);
+
+    return (response as List).length;
+  }
+
+  // ===============================
+  // Mark messages as read for supplier
+  // ===============================
+  Future<void> markMessagesAsRead({
+    required String chatId,
+    required String supplierId,
+  }) async {
+    await _client
+        .from('chat_messages')
+        .update({'is_read': true})
+        .eq('chat_id', chatId)
+        .eq('is_read', false)
+        .neq('sender_id', supplierId);
+  }
+
+  // ===============================
+  // Stream chats for supplier (real-time)
+  // ===============================
+  Stream<List<ChatSummary>> streamSupplierChats(String supplierId) {
+    return _client
+        .from('chats')
+        .stream(primaryKey: ['id'])
+        .eq('supplier_id', supplierId)
+        .order('last_message_at', ascending: false)
+        .map(
+          (rows) => rows
+              .map(
+                (row) => ChatSummary(
+                  chatId: row['id'],
+                  orderGroupId: row['order_id'],
+                  supplierId: row['supplier_id'],
+                  lastMessage: row['last_message'],
+                  lastMessageAt: row['last_message_at'] != null
+                      ? DateTime.parse(row['last_message_at'])
+                      : null,
+                ),
+              )
+              .toList(),
+        );
   }
 
   // ===============================

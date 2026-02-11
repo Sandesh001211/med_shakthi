@@ -22,14 +22,13 @@ final chatForOrderProvider =
 
   if (existingChat != null) {
     return ChatSummary(
-      chatId: existingChat['id'],
-      orderGroupId: existingChat['order_id'],
-      supplierId: existingChat['supplier_id'],
-      lastMessage: existingChat['last_message'],
-      lastMessageAt: existingChat['last_message_at'] != null
-          ? DateTime.parse(existingChat['last_message_at'])
-          : null,
-    );
+     chatId: existingChat.chatId,
+     orderGroupId: existingChat.orderGroupId,
+     supplierId: existingChat.supplierId,
+    lastMessage: existingChat.lastMessage,
+    lastMessageAt: existingChat.lastMessageAt,
+   );
+
   }
 
   // 2️⃣ Create chat if missing
@@ -44,10 +43,10 @@ final chatForOrderProvider =
   );
 
   return ChatSummary(
-    chatId: createdChat['id'],
-    orderGroupId: createdChat['order_id'],
-    supplierId: createdChat['supplier_id'],
-    lastMessage: null,
-    lastMessageAt: null,
+  chatId: createdChat.chatId,
+  orderGroupId: createdChat.orderGroupId,
+  supplierId: createdChat.supplierId,
+  lastMessage: createdChat.lastMessage,
+  lastMessageAt: createdChat.lastMessageAt,
   );
 });
