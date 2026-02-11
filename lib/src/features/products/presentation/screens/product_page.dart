@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../cart/data/cart_data.dart';
 import '../../../cart/data/cart_item.dart';
 import '../../../cart/presentation/screens/cart_page.dart';
-import '../../data/models/product_model.dart';
+import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
 import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
 import 'package:med_shakthi/src/features/wishlist/data/models/wishlist_item_model.dart';
 import 'package:med_shakthi/src/core/utils/smart_product_image.dart';

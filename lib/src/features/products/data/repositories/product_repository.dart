@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
 import 'package:flutter/foundation.dart';
 import '../models/product_model.dart';
 
