@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/dashboard/pharmacy_home_screen.dart';
-import 'package:med_shakthi/src/features/auth/presentation/screens/supplier_signup_page.dart';
-import 'package:med_shakthi/src/features/auth/presentation/screens/signup_page.dart';
 import 'package:med_shakthi/src/features/dashboard/supplier_dashboard.dart';
 import 'package:med_shakthi/src/core/widgets/app_logo.dart';
+import 'package:med_shakthi/src/features/auth/presentation/screens/role_selection_page.dart';
 
 import 'forgot_password_page.dart';
 
@@ -18,7 +17,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // Supabase Client
   final SupabaseClient supabase = Supabase.instance.client;
 
   final TextEditingController _emailController = TextEditingController();
@@ -37,19 +35,15 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _onLoginPressed() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // 🔐 Supabase Login Logic
       final AuthResponse res = await supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
       if (res.user != null) {
-        // 🔍 Check if the logged-in user is a supplier
         final supplierData = await supabase
             .from('suppliers')
             .select()
@@ -65,20 +59,17 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
 
-        // 🔀 Navigation Logic
         if (supplierData != null) {
-          // Navigate to Supplier Dashboard
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (BuildContext context) => const SupplierDashboard(),
+              builder: (_) => const SupplierDashboard(),
             ),
             (route) => false,
           );
         } else {
-          // Navigate to User/Pharmacy Home
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (BuildContext context) => const PharmacyHomeScreen(),
+              builder: (_) => const PharmacyHomeScreen(),
             ),
             (route) => false,
           );
@@ -136,6 +127,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 30),
                   const Center(child: AppLogo(size: 100)),
                   const SizedBox(height: 40),
+
                   _label('Email'),
                   _textField(
                     controller: _emailController,
@@ -145,7 +137,9 @@ class _LoginPageState extends State<LoginPage> {
                         ? null
                         : 'Enter valid email',
                   ),
+
                   const SizedBox(height: 20),
+
                   _label('Password'),
                   _textField(
                     controller: _passwordController,
@@ -167,7 +161,9 @@ class _LoginPageState extends State<LoginPage> {
                         ? null
                         : 'Minimum 6 characters',
                   ),
+
                   const SizedBox(height: 10),
+
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -182,14 +178,18 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                          color: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.color
+                              ?.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 16),
+
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -203,13 +203,9 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
                             )
                           : const Text(
                               'Login',
@@ -220,70 +216,35 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 30),
-                  Center(
-                    child: Text(
-                      'Social Login',
-                      style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _socialIcon(Icons.facebook, const Color(0xFF1877F2)),
-                      const SizedBox(width: 20),
-                      _socialIcon(
-                        Icons.g_mobiledata,
-                        const Color(0xFFEA4335),
-                        size: 40,
-                      ),
-                      const SizedBox(width: 20),
-                      _socialIcon(
-                        Icons.apple,
-                        Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white
-                            : Colors.black,
-                      ),
-                    ],
-                  ),
+
                   const SizedBox(height: 40),
+
                   Center(
                     child: GestureDetector(
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const SignupPage(),
+                            builder: (_) => const RoleSelectionPage(),
                           ),
                         );
                       },
                       child: RichText(
                         text: TextSpan(
                           style: TextStyle(
-                            color: Theme.of(context).textTheme.bodySmall?.color
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.color
                                 ?.withValues(alpha: 0.6),
                             fontSize: 14,
                           ),
-                          children: [
-                            TextSpan(
-                              text: "Don't have an account? ",
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color
-                                    ?.withValues(alpha: 0.7),
-                              ),
-                            ),
+                          children: const [
+                            TextSpan(text: "Don't have an account? "),
                             TextSpan(
                               text: 'Sign up',
                               style: TextStyle(
-                                color: const Color(0xFF6AA39B),
+                                color: Color(0xFF6AA39B),
                                 fontWeight: FontWeight.bold,
                                 decoration: TextDecoration.underline,
                               ),
@@ -293,48 +254,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SupplierSignupPage(),
-                          ),
-                        );
-                      },
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodySmall?.color
-                                ?.withValues(alpha: 0.6),
-                            fontSize: 14,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'Are you a distributor? ',
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.color
-                                    ?.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'Register as Supplier',
-                              style: TextStyle(
-                                color: const Color(0xFF6AA39B),
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+
                   const SizedBox(height: 20),
                 ],
               ),
@@ -373,41 +293,14 @@ class _LoginPageState extends State<LoginPage> {
       validator: validator,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
-          color: Theme.of(
-            context,
-          ).textTheme.bodySmall?.color?.withValues(alpha: 0.4),
-        ),
-        suffixIcon: suffixIcon,
         filled: true,
         fillColor: Theme.of(context).cardColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
+        suffixIcon: suffixIcon,
       ),
-    );
-  }
-
-  Widget _socialIcon(IconData icon, Color color, {double size = 30}) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.3
-                  : 0.1,
-            ),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Icon(icon, color: color, size: size),
     );
   }
 }
