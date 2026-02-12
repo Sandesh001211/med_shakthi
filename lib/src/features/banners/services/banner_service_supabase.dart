@@ -37,9 +37,9 @@ class BannerServiceSupabase {
         'supplier_id': supplierId,
         'category': category,
         'active': active,
-        'start_date': startDate.toIso8601String(),
-        'end_date': endDate.toIso8601String(),
-        'created_at': DateTime.now().toIso8601String(),
+        'start_date': startDate.toUtc().toIso8601String(),
+        'end_date': endDate.toUtc().toIso8601String(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
         'supplier_name': supplierName,
       };
 
@@ -84,14 +84,13 @@ class BannerServiceSupabase {
         .from(_bannersTable)
         .stream(primaryKey: ['id'])
         .map((data) {
-          final now = DateTime.now();
+          // RLS policy already filters by date (start_date <= NOW and end_date >= NOW)
+          // We only need to check active status and sort
           return data
               .map((json) => SupabaseBannerModel.fromJson(json))
-              .where((banner) => 
-                  banner.active &&
-                  banner.startDate.isBefore(now) &&
-                  banner.endDate.isAfter(now))
-              .toList();
+              .where((banner) => banner.active)
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
   }
 
@@ -101,9 +100,9 @@ class BannerServiceSupabase {
         .from(_bannersTable)
         .stream(primaryKey: ['id'])
         .map((data) {
+          // RLS policy already ensures suppliers only see their own banners
           return data
               .map((json) => SupabaseBannerModel.fromJson(json))
-              .where((banner) => banner.supplierId == supplierId)
               .toList()
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
@@ -112,7 +111,7 @@ class BannerServiceSupabase {
   // Get active banners (one-time fetch)
   Future<List<SupabaseBannerModel>> getActiveBanners() async {
     try {
-      final now = DateTime.now().toIso8601String();
+      final now = DateTime.now().toUtc().toIso8601String();
       
       final response = await _supabase
           .from(_bannersTable)
@@ -159,9 +158,9 @@ class BannerServiceSupabase {
         'image_url': imageUrl,
         'category': category,
         'active': active,
-        'start_date': startDate.toIso8601String(),
-        'end_date': endDate.toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'start_date': startDate.toUtc().toIso8601String(),
+        'end_date': endDate.toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
       await updateBanner(bannerId, updates);
