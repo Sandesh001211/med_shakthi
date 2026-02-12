@@ -20,6 +20,8 @@ import 'package:med_shakthi/src/features/products/data/models/product_model.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/search/search_page.dart';
 
+import '../profile/presentation/screens/qr_scanner_page.dart';
+
 /// This screen implements the "Med Shakti home page" for Retailers
 class PharmacyHomeScreen extends StatefulWidget {
   const PharmacyHomeScreen({super.key});
@@ -144,37 +146,46 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
         //  SEARCH BAR
         Expanded(
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SearchPage()),
-              );
-            },
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.search, color: Colors.grey),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Search medicine",
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
+          child: Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.search, color: Colors.grey),
+                const SizedBox(width: 8),
+
+                const Expanded(
+                  child: Text(
+                    "Search medicine",
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
-                  Icon(Icons.camera_alt_outlined, color: Colors.black),
-                ],
-              ),
+                ),
+
+                //  CAMERA CLICKABLE
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const QRScannerPage(),
+                      ),
+                    );
+                  },
+                  child: const Icon(
+                    Icons.camera_alt_outlined,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
+
 
         const SizedBox(width: 12),
 
