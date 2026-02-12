@@ -6,7 +6,7 @@ import '../profile/presentation/screens/supplier_category_page.dart';
 import '../profile/presentation/screens/supplier_payout_page.dart';
 import '../profile/presentation/screens/supplier_profile_screen.dart';
 import '../profile/presentation/screens/supplier_wishlist_page.dart';
-import '../supplier/inventory/ui/add_product_page.dart'; // ✅ ADDED FOR FAB
+import '../supplier/inventory/ui/add_product_page.dart'; //  ADDED FOR FAB
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});
@@ -257,28 +257,39 @@ class SupplierDashboardHome extends StatelessWidget {
           return InkWell(
             borderRadius: BorderRadius.circular(50),
             onTap: () {
-              //  NAVIGATION LOGIC
-              if (label == "Orders") {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const OrdersPage()),
-                );
-              } else if (label == "Clients") {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
-                );
-              } else if (label == "Payouts") {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SupplierPayoutPage()),
-                );
-              } else if (label == "Sales") {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Sales page coming soon")),
-                );
+              switch (label) {
+                case "Orders":
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OrdersPage()),
+                  );
+                  break;
+
+                case "Clients":
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChatListScreen()),
+                  );
+                  break;
+
+                case "Payouts":
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SupplierPayoutPage()),
+                  );
+                  break;
+
+                case "Sales":
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Sales page coming soon")),
+                  );
+                  break;
+
+                default:
+                  debugPrint("Unknown category tapped: $label");
               }
             },
+
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
