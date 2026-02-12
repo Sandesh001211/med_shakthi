@@ -3,7 +3,7 @@
   <h1>🩺 Med Shakthi</h1>
   
   <p>
-    A robust <strong>Flutter-based Healthcare Application</strong> managing medicines, orders, and patient data with real-time sync.
+    A robust <strong>Flutter based Healthcare Application</strong> managing medicines, orders, and patient data with real-time sync.
   </p>
 
   <p>
