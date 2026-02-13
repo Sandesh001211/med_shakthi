@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Med Shakthi - Banner System UI Mockups</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 42px;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #00D9C0, #00A896);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 60px;
+            font-size: 18px;
+        }
+
+        .mockup-section {
+            margin-bottom: 80px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            margin-bottom: 24px;
+            color: #00D9C0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-desc {
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 32px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .mockup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 32px;
+        }
+
+        .phone-mockup {
+            background: #1A1F3A;
+            border-radius: 32px;
+            padding: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .phone-mockup::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #00D9C0, #00A896);
+        }
+
+        .phone-screen {
+            background: #0A0E27;
+            border-radius: 20px;
+            padding: 20px;
+            min-height: 600px;
+        }
+
+        /* Supplier - Create Banner Screen */
+        .app-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .app-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .image-upload {
+            height: 180px;
+            border: 2px dashed #00D9C0;
+            border-radius: 16px;
+            background: rgba(0, 217, 192, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .image-upload:hover {
+            background: rgba(0, 217, 192, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(0, 217, 192, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 16px;
+            background: #1A1F3A;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .date-picker {
+            padding: 16px;
+            background: #1A1F3A;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .calendar-icon {
+            color: #00D9C0;
+        }
+
+        .toggle-container {
+            background: #1A1F3A;
+            padding: 16px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .toggle-switch {
+            width: 52px;
+            height: 28px;
+            background: #00D9C0;
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            right: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .publish-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #00D9C0, #00A896);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 217, 192, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .publish-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(0, 217, 192, 0.4);
+        }
+
+        /* Client - Banner Carousel */
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 16px;
+            background: #1A1F3A;
+            border: none;
+            border-radius: 50px;
+            color: #fff;
+        }
+
+        .icon-btn {
+            width: 48px;
+            height: 48px;
+            background: #1A1F3A;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .banner-carousel {
+            margin-bottom: 24px;
+        }
+
+        .banner-card {
+            height: 180px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #00D9C0, #00A896);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 12px 32px rgba(0, 217, 192, 0.3);
+            margin-bottom: 12px;
+        }
+
+        .banner-tag {
+            display: inline-block;
+            padding: 6px 12px;
+            background: #FFB800;
+            color: #000;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .banner-title {
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 8px;
+        }
+
+        .banner-subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .banner-icon {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            width: 56px;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .indicators {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 32px;
+        }
+
+        .indicator {
+            width: 24px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .indicator.active {
+            background: #00D9C0;
+        }
+
+        .categories-section {
+            margin-bottom: 32px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .section-header h3 {
+            font-size: 20px;
+        }
+
+        .see-all {
+            color: #00D9C0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .category-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .category-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .category-icon:hover {
+            transform: scale(1.1);
+        }
+
+        .category-icon.medicines {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .category-icon.devices {
+            background: rgba(168, 85, 247, 0.2);
+        }
+
+        .category-icon.health {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .category-icon.vitamins {
+            background: rgba(234, 179, 8, 0.2);
+        }
+
+        .category-name {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Manage Banners Screen */
+        .banner-list-item {
+            background: #1A1F3A;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .banner-preview {
+            height: 140px;
+            background: linear-gradient(135deg, #00D9C0, #00A896);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .status-badge.active {
+            background: #00D9C0;
+        }
+
+        .status-badge.inactive {
+            background: #6B7280;
+        }
+
+        .banner-details {
+            padding: 16px;
+        }
+
+        .banner-details h4 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .banner-details p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 12px;
+        }
+
+        .info-chips {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .info-chip {
+            padding: 4px 8px;
+            background: #0A0E27;
+            border-radius: 6px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 10px;
+            border: 1px solid;
+            border-radius: 8px;
+            background: transparent;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn.pause {
+            border-color: #00D9C0;
+            color: #00D9C0;
+        }
+
+        .action-btn.delete {
+            border-color: #EF4444;
+            color: #EF4444;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .phone-mockup {
+            animation: slideIn 0.6s ease-out;
+        }
+
+        .feature-list {
+            background: #1A1F3A;
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 32px;
+        }
+
+        .feature-list h3 {
+            color: #00D9C0;
+            margin-bottom: 16px;
+        }
+
+        .feature-list ul {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .check-icon {
+            color: #00D9C0;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Med Shakthi Banner System</h1>
+        <p class="subtitle">Modern Dark-Mode Mobile App UI & Functional Flow</p>
+
+        <!-- Supplier Side -->
+        <div class="mockup-section">
+            <h2 class="section-title">
+                <span>👨‍💼</span> Supplier Side - Create Offer Banner
+            </h2>
+            <p class="section-desc">
+                Suppliers can create promotional banners with image upload, category selection, date range, and active/inactive toggle.
+            </p>
+
+            <div class="mockup-grid">
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <div class="app-bar">
+                            <div class="back-btn">←</div>
+                            <div class="app-title">Create Offer</div>
+                        </div>
+
+                        <div class="image-upload">
+                            <div class="upload-icon">☁️</div>
+                            <div style="color: rgba(255,255,255,0.7); font-size: 16px; font-weight: 500;">Upload Banner Image</div>
+                            <div style="color: rgba(255,255,255,0.4); font-size: 14px;">Tap to select image</div>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">Offer Title</label>
+                            <input type="text" class="input-field" placeholder="e.g., LOWEST PRICES ARE LIVE">
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">Subtitle / Discount</label>
+                            <input type="text" class="input-field" placeholder="Up to 60% Off">
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">Category</label>
+                            <select class="input-field">
+                                <option>Medicines</option>
+                                <option>Devices</option>
+                                <option>Health</option>
+                                <option>Vitamins</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">Date Range</label>
+                            <div class="date-row">
+                                <div class="date-picker">
+                                    <span class="calendar-icon">📅</span>
+                                    <span>11/02/2026</span>
+                                </div>
+                                <div class="date-picker">
+                                    <span class="calendar-icon">📅</span>
+                                    <span>18/02/2026</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="toggle-container">
+                            <span>Active / Inactive</span>
+                            <div class="toggle-switch"></div>
+                        </div>
+
+                        <button class="publish-btn">Publish Offer</button>
+                    </div>
+                </div>
+
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <div class="app-bar">
+                            <div class="back-btn">←</div>
+                            <div class="app-title">Manage Banners</div>
+                        </div>
+
+                        <div class="banner-list-item">
+                            <div class="banner-preview">
+                                🛍️
+                                <div class="status-badge active">ACTIVE</div>
+                            </div>
+                            <div class="banner-details">
+                                <h4>LOWEST PRICES ARE LIVE</h4>
+                                <p>Up to 60% Off</p>
+                                <div class="info-chips">
+                                    <div class="info-chip">
+                                        <span>📦</span> Medicines
+                                    </div>
+                                    <div class="info-chip">
+                                        <span>📅</span> 11/2 - 18/2
+                                    </div>
+                                </div>
+                                <div class="action-buttons">
+                                    <button class="action-btn pause">
+                                        <span>⏸️</span> Pause
+                                    </button>
+                                    <button class="action-btn delete">
+                                        <span>🗑️</span> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="banner-list-item">
+                            <div class="banner-preview" style="background: linear-gradient(135deg, #9333EA, #7C3AED);">
+                                💊
+                                <div class="status-badge inactive">INACTIVE</div>
+                            </div>
+                            <div class="banner-details">
+                                <h4>HEALTH WEEK SPECIAL</h4>
+                                <p>Buy 2 Get 1 Free</p>
+                                <div class="info-chips">
+                                    <div class="info-chip">
+                                        <span>❤️</span> Health
+                                    </div>
+                                    <div class="info-chip">
+                                        <span>📅</span> 15/2 - 22/2
+                                    </div>
+                                </div>
+                                <div class="action-buttons">
+                                    <button class="action-btn pause">
+                                        <span>▶️</span> Activate
+                                    </button>
+                                    <button class="action-btn delete">
+                                        <span>🗑️</span> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-list">
+                <h3>✨ Supplier Features</h3>
+                <ul>
+                    <li><span class="check-icon">✓</span> Upload banner images to cloud storage</li>
+                    <li><span class="check-icon">✓</span> Set offer title and discount text</li>
+                    <li><span class="check-icon">✓</span> Select category (Medicines, Devices, Health, Vitamins)</li>
+                    <li><span class="check-icon">✓</span> Define start and end dates</li>
+                    <li><span class="check-icon">✓</span> Toggle active/inactive status</li>
+                    <li><span class="check-icon">✓</span> Real-time banner management</li>
+                    <li><span class="check-icon">✓</span> Automatic expiration after end date</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Client Side -->
+        <div class="mockup-section">
+            <h2 class="section-title">
+                <span>👥</span> Client Side - Banner Carousel
+            </h2>
+            <p class="section-desc">
+                Customers see auto-sliding banners on the home screen with real-time updates. Tap to navigate to category products.
+            </p>
+
+            <div class="mockup-grid">
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <div class="search-bar">
+                            <div class="icon-btn">👤</div>
+                            <input type="text" class="search-input" placeholder="Search medicine">
+                            <div class="icon-btn">🌙</div>
+                        </div>
+
+                        <div class="banner-carousel">
+                            <div class="banner-card">
+                                <div class="banner-tag">PAYDAY SALE</div>
+                                <div class="banner-title">LOWEST PRICES<br>ARE LIVE</div>
+                                <div class="banner-subtitle">Up to 60% Off</div>
+                                <div class="banner-icon">🛍️</div>
+                            </div>
+
+                            <div class="indicators">
+                                <div class="indicator active"></div>
+                                <div class="indicator"></div>
+                                <div class="indicator"></div>
+                            </div>
+                        </div>
+
+                        <div class="categories-section">
+                            <div class="section-header">
+                                <h3>Categories</h3>
+                                <span class="see-all">See All</span>
+                            </div>
+                            <div class="category-grid">
+                                <div class="category-item">
+                                    <div class="category-icon medicines">💊</div>
+                                    <div class="category-name">Medicines</div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon devices">🩺</div>
+                                    <div class="category-name">Devices</div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon health">❤️</div>
+                                    <div class="category-name">Health</div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon vitamins">🌿</div>
+                                    <div class="category-name">Vitamins</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="categories-section">
+                            <div class="section-header">
+                                <h3>Bestseller Products</h3>
+                                <span class="see-all">See All</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <div class="search-bar">
+                            <div class="icon-btn">👤</div>
+                            <input type="text" class="search-input" placeholder="Search medicine">
+                            <div class="icon-btn">🌙</div>
+                        </div>
+
+                        <div class="banner-carousel">
+                            <div class="banner-card" style="background: linear-gradient(135deg, #9333EA, #7C3AED);">
+                                <div class="banner-tag">HEALTH WEEK</div>
+                                <div class="banner-title">BUY 2 GET 1<br>FREE</div>
+                                <div class="banner-subtitle">Limited Time Offer</div>
+                                <div class="banner-icon">💊</div>
+                            </div>
+
+                            <div class="indicators">
+                                <div class="indicator"></div>
+                                <div class="indicator active"></div>
+                                <div class="indicator"></div>
+                            </div>
+                        </div>
+
+                        <div class="categories-section">
+                            <div class="section-header">
+                                <h3>Categories</h3>
+                                <span class="see-all">See All</span>
+                            </div>
+                            <div class="category-grid">
+                                <div class="category-item">
+                                    <div class="category-icon medicines">💊</div>
+                                    <div class="category-name">Medicines</div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon devices">🩺</div>
+                                    <div class="category-name">Devices</div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon health">❤️</div>
+                                    <div class="category-name">Health</div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon vitamins">🌿</div>
+                                    <div class="category-name">Vitamins</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="categories-section">
+                            <div class="section-header">
+                                <h3>Bestseller Products</h3>
+                                <span class="see-all">See All</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-list">
+                <h3>✨ Client Features</h3>
+                <ul>
+                    <li><span class="check-icon">✓</span> Auto-sliding banner carousel (5 seconds)</li>
+                    <li><span class="check-icon">✓</span> Real-time banner updates (no app refresh)</li>
+                    <li><span class="check-icon">✓</span> Gradient banner cards with teal theme</li>
+                    <li><span class="check-icon">✓</span> Offer category tags</li>
+                    <li><span class="check-icon">✓</span> Animated page indicators</li>
+                    <li><span class="check-icon">✓</span> Tap to navigate to category products</li>
+                    <li><span class="check-icon">✓</span> Smooth animations and transitions</li>
+                    <li><span class="check-icon">✓</span> Loading, error, and empty states</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Technical Specs -->
+        <div class="feature-list" style="margin-top: 60px;">
+            <h3>🔧 Technical Specifications</h3>
+            <ul>
+                <li><span class="check-icon">✓</span> <strong>Backend:</strong> Firebase Firestore + Firebase Storage</li>
+                <li><span class="check-icon">✓</span> <strong>Real-time:</strong> Firestore streams (no polling)</li>
+                <li><span class="check-icon">✓</span> <strong>Architecture:</strong> Clean, component-based structure</li>
+                <li><span class="check-icon">✓</span> <strong>State Management:</strong> StreamBuilder for reactive UI</li>
+                <li><span class="check-icon">✓</span> <strong>Image Upload:</strong> Firebase Storage with compression</li>
+                <li><span class="check-icon">✓</span> <strong>Automatic Expiration:</strong> Server-side date validation</li>
+                <li><span class="check-icon">✓</span> <strong>Scalability:</strong> Multi-supplier support</li>
+                <li><span class="check-icon">✓</span> <strong>Platform:</strong> Optimized for Android and iOS</li>
+            </ul>
+        </div>
+
+        <div class="feature-list" style="margin-top: 32px;">
+            <h3>🎨 Design System</h3>
+            <ul>
+                <li><span class="check-icon">✓</span> <strong>Primary Background:</strong> #0A0E27 (Deep Navy)</li>
+                <li><span class="check-icon">✓</span> <strong>Secondary Background:</strong> #1A1F3A (Dark Slate)</li>
+                <li><span class="check-icon">✓</span> <strong>Primary Accent:</strong> #00D9C0 (Teal)</li>
+                <li><span class="check-icon">✓</span> <strong>Secondary Accent:</strong> #00A896 (Dark Teal)</li>
+                <li><span class="check-icon">✓</span> <strong>Highlight:</strong> #FFB800 (Golden Yellow)</li>
+                <li><span class="check-icon">✓</span> <strong>Border Radius:</strong> 12-20px (Rounded corners)</li>
+                <li><span class="check-icon">✓</span> <strong>Shadows:</strong> Soft, layered shadows</li>
+                <li><span class="check-icon">✓</span> <strong>Typography:</strong> Modern fintech-style fonts</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

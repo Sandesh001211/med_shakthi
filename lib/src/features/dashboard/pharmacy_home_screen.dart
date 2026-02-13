@@ -22,6 +22,7 @@ import 'package:med_shakthi/src/features/products/data/models/product_model.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/search/search_page.dart';
 import 'package:med_shakthi/src/core/utils/smart_product_image.dart';
+import 'package:med_shakthi/src/features/banners/widgets/banner_carousel.dart';
 
 /// This screen implements the "Med Shakti home page" for Retailers
 class PharmacyHomeScreen extends StatefulWidget {
@@ -86,9 +87,8 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             _buildTopBar(),
             // Top Bar
             const SizedBox(height: 24),
-            // MODIFIED: Switched back to RecentPurchaseCard
-            // When no order exists, this card will show the Promo Banner design.
-            const PromoBannerSlider(),
+            // Banner Carousel from Supabase
+            const BannerCarousel(),
             const SizedBox(height: 24),
             _buildSectionTitle("Categories", "See All", () {
               setState(() => _selectedIndex = 1);
