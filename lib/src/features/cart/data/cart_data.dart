@@ -68,38 +68,26 @@ class CartData extends ChangeNotifier {
     try {
       final supabase = Supabase.instance.client;
 
-      // 1. Fetch remote items
-      final List<dynamic> remoteData = await supabase
+      // 1. Listen to Realtime Changes
+      supabase
           .from('cart_items')
-          .select()
-          .eq('user_id', user.id);
+          .stream(primaryKey: ['id'])
+          .eq('user_id', user.id)
+          .listen((List<Map<String, dynamic>> data) {
+            _items = data.map((e) {
+              return CartItem(
+                id: e['product_id'] ?? e['id'], // Handle schema variations
+                name: e['name'],
+                price: (e['price'] as num).toDouble(),
+                imagePath: e['image'],
+                quantity: e['quantity'] ?? 1,
+              );
+            }).toList();
+            _saveLocalCart();
+            notifyListeners();
+          });
 
-      final List<CartItem> remoteItems = remoteData.map((e) {
-        // Map DB columns to CartItem model
-        // Assuming conversion handles it or we manually map if names differ
-        return CartItem(
-          id: e['id'] ?? e['product_id'],
-          name: e['name'],
-          price: (e['price'] as num).toDouble(),
-          imagePath: e['image'],
-          quantity: e['quantity'] ?? 1,
-        );
-      }).toList();
-
-      // 2. Merge Strategy: Remote wins for simplicity in this internship project
-      // Ideally: timestamp based merge.
-      // Current: If remote exists, use it. If remote empty & local has items, push local.
-
-      if (remoteItems.isNotEmpty) {
-        _items = remoteItems;
-        _saveLocalCart(); // Update local persistence
-        notifyListeners();
-      } else if (_items.isNotEmpty) {
-        // Push all local items to remote
-        for (var item in _items) {
-          await _addToRemote(item);
-        }
-      }
+      // Initial fetch is handled by the stream immediately
     } catch (e) {
       debugPrint("Error syncing cart: $e");
     }

@@ -33,8 +33,8 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SafeArea(
@@ -61,16 +61,44 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
 
                       _divider(),
                       _section('Expiry Date'),
-                      _check('Within 1 Month', filter.expiry1Month, (v) => setState(() => filter.expiry1Month = v)),
-                      _check('Within 3 Months', filter.expiry3Months, (v) => setState(() => filter.expiry3Months = v)),
-                      _check('Within 6 Months', filter.expiry6Months, (v) => setState(() => filter.expiry6Months = v)),
-                      _check('Within 12 Months', filter.expiry12Months, (v) => setState(() => filter.expiry12Months = v)),
+                      _check(
+                        'Within 1 Month',
+                        filter.expiry1Month,
+                        (v) => setState(() => filter.expiry1Month = v),
+                      ),
+                      _check(
+                        'Within 3 Months',
+                        filter.expiry3Months,
+                        (v) => setState(() => filter.expiry3Months = v),
+                      ),
+                      _check(
+                        'Within 6 Months',
+                        filter.expiry6Months,
+                        (v) => setState(() => filter.expiry6Months = v),
+                      ),
+                      _check(
+                        'Within 12 Months',
+                        filter.expiry12Months,
+                        (v) => setState(() => filter.expiry12Months = v),
+                      ),
 
                       _divider(),
                       _section('Stock Status'),
-                      _check('Available Only', filter.availableOnly, (v) => setState(() => filter.availableOnly = v)),
-                      _check('Low Stock (<10)', filter.lowStock, (v) => setState(() => filter.lowStock = v)),
-                      _check('Out of Stock', filter.outOfStock, (v) => setState(() => filter.outOfStock = v)),
+                      _check(
+                        'Available Only',
+                        filter.availableOnly,
+                        (v) => setState(() => filter.availableOnly = v),
+                      ),
+                      _check(
+                        'Low Stock (<10)',
+                        filter.lowStock,
+                        (v) => setState(() => filter.lowStock = v),
+                      ),
+                      _check(
+                        'Out of Stock',
+                        filter.outOfStock,
+                        (v) => setState(() => filter.outOfStock = v),
+                      ),
 
                       _divider(),
                       _section('Minimum Rating'),
@@ -122,7 +150,10 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
   Widget _section(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 16),
-      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
     );
   }
 
@@ -194,10 +225,15 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xff2b9c8f),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           onPressed: () => Navigator.pop(context, filter),
-          child: const Text('Apply Filters', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          child: const Text(
+            'Apply Filters',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
       ),
     );

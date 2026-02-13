@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:med_shakthi/src/features/supplier/inventory/ui/add_product_page.dart';
 
 class SupplierCategoryPage extends StatefulWidget {
   const SupplierCategoryPage({super.key});
@@ -256,13 +257,25 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
                                 );
                               } else {
                                 final product = products[i];
-                                return _buildTile(
-                                  title: product['name'],
-                                  subtitle: "₹${product['price'] ?? '--'}",
-                                  icon: getSubCategoryIcon(
-                                    product['sub_category'] ?? "",
+                                return InkWell(
+                                  onTap: () {
+                                    // Navigate to AddProductPage for editing with the 'product' map
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            AddProductPage(product: product),
+                                      ), // Assuming AddProductPage takes a map or needs adaptation
+                                    );
+                                  },
+                                  child: _buildTile(
+                                    title: product['name'],
+                                    subtitle: "₹${product['price'] ?? '--'}",
+                                    icon: getSubCategoryIcon(
+                                      product['sub_category'] ?? "",
+                                    ),
+                                    imageUrl: product['image_url'],
                                   ),
-                                  imageUrl: product['image_url'],
                                 );
                               }
                             },

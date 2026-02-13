@@ -460,7 +460,7 @@ class _CreateBannerScreenState extends State<CreateBannerScreen> {
             ],
           ),
           child: DropdownButtonFormField<String>(
-            value: _selectedCategory,
+            initialValue: _selectedCategory,
             dropdownColor: theme.cardColor,
             style: TextStyle(color: theme.textTheme.bodyLarge?.color),
             decoration: InputDecoration(

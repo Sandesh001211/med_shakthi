@@ -278,6 +278,7 @@ class _BottomBar extends StatelessWidget {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00B894),
+              foregroundColor: Colors.white, // Force white text
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),

@@ -81,20 +81,6 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateBannerScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF00D9C0),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Create Banner',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-      ),
     );
   }
 

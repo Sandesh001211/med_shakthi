@@ -1,182 +1,308 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SupplierOrdersPage extends StatelessWidget {
+class SupplierOrdersPage extends StatefulWidget {
   const SupplierOrdersPage({super.key});
 
   @override
+  State<SupplierOrdersPage> createState() => _SupplierOrdersPageState();
+}
+
+class _SupplierOrdersPageState extends State<SupplierOrdersPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Orders'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Pending'),
-              Tab(text: 'Accepted'),
-              Tab(text: 'Rejected'),
-            ],
-          ),
-        ),
-        body: const TabBarView(
-          children: [
-            OrdersList(status: 'pending'),
-            OrdersList(status: 'accepted'),
-            OrdersList(status: 'rejected'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Manage Orders"),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: "Pending"),
+            Tab(text: "Accepted"),
+            Tab(text: "Dispatched"),
+            Tab(text: "Cancelled"),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [
+          SupplierOrderList(status: "Pending"),
+          SupplierOrderList(status: "Accepted"),
+          SupplierOrderList(status: "Dispatched"),
+          SupplierOrderList(status: "Cancelled"), // Or Rejected
+        ],
       ),
     );
   }
 }
 
-/* ---------------- ORDERS LIST ---------------- */
-
-class OrdersList extends StatelessWidget {
+class SupplierOrderList extends StatefulWidget {
   final String status;
-  const OrdersList({required this.status, super.key});
+  const SupplierOrderList({super.key, required this.status});
+
+  @override
+  State<SupplierOrderList> createState() => _SupplierOrderListState();
+}
+
+class _SupplierOrderListState extends State<SupplierOrderList> {
+  final _supabase = Supabase.instance.client;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _orders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      // 1. Get Supplier Code
+      final supplierData = await _supabase
+          .from('suppliers')
+          .select('supplier_code')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (supplierData == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      final String supplierCode = supplierData['supplier_code'];
+
+      // 2. Fetch Order Details for this supplier
+      // We need to join with 'products' to filter by supplier_code
+      final response = await _supabase
+          .from('order_details')
+          .select(
+            '*, products!inner(name, image_url, supplier_code), orders!inner(id, order_group_id, address_id, created_at, user_id)',
+          )
+          .eq('products.supplier_code', supplierCode)
+          .eq('status', widget.status)
+          .order('created_at', ascending: false);
+
+      if (mounted) {
+        setState(() {
+          _orders = List<Map<String, dynamic>>.from(response);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching supplier orders: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateStatus(
+    String orderId,
+    String newStatus, {
+    String? reason,
+  }) async {
+    // Note: orderId here refers to the 'id' of the 'order_details' row, NOT the parent 'orders' table
+    // because suppliers manage specific items, not the entire order group (usually).
+
+    try {
+      await _supabase
+          .from('order_details')
+          .update({
+            'status': newStatus,
+            if (reason != null)
+              'cancellation_reason': reason, // Assuming column exists
+          })
+          .eq('id', orderId);
+
+      _fetchOrders(); // Refresh list
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Order marked as $newStatus")));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error updating status: $e")));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final supabase = Supabase.instance.client;
-    final supplierId = supabase.auth.currentUser!.id;
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return FutureBuilder(
-      future: supabase
-          .from('orders')
-          .select()
-          .eq('supplier_id', supplierId)
-          .eq('status', status)
-          .order('created_at', ascending: false),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    if (_orders.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox, size: 60, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              "No ${widget.status} orders",
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
 
-        if (!snapshot.hasData || (snapshot.data as List).isEmpty) {
-          return Center(child: Text('No $status orders'));
-        }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _orders.length,
+      itemBuilder: (context, index) {
+        final order = _orders[index];
+        final product = order['products'];
+        final parentOrder = order['orders'];
+        final qty = order['quantity'];
+        final price = order['price'];
 
-        final orders = snapshot.data as List;
-
-        return ListView.builder(
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            return OrderCard(order: orders[index]);
-          },
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        product['image_url'] ?? '',
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 60,
+                          height: 60,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product['name'] ?? 'Product',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text("Qty: $qty • ₹$price"),
+                          Text(
+                            "Order ID: #${parentOrder['order_group_id']?.toString().substring(0, 8) ?? 'N/A'}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                if (widget.status == "Pending")
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () =>
+                            _showRejectDialog(context, order['id']),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text("Reject"),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () => _updateStatus(order['id'], "Accepted"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4CA6A8),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text("Accept"),
+                      ),
+                    ],
+                  ),
+                if (widget.status == "Accepted")
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _updateStatus(order['id'], "Dispatched"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text("Dispatch Order"),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
-}
 
-/* ---------------- ORDER CARD ---------------- */
-
-class OrderCard extends StatelessWidget {
-  final Map order;
-  const OrderCard({required this.order, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final items = order['order_items'] as List<dynamic>;
-
-    return Card(
-      margin: const EdgeInsets.all(10),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Order ID: ${order['id'].toString().substring(0, 6)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text('Total: ₹${order['total_amount']}'),
-            Text('Payment: ${order['payment_status']}'),
-            const Divider(),
-
-            const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
-
-            ...items.map(
-              (item) => Text('• ${item['product']} × ${item['qty']}'),
-            ),
-
-            const SizedBox(height: 10),
-
-            if (order['status'] == 'pending')
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () => acceptOrder(order['id']),
-                    child: const Text('Accept'),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => rejectOrder(context, order['id']),
-                    child: const Text('Reject'),
-                  ),
-                ],
-              ),
-
-            if (order['status'] == 'rejected' &&
-                order['rejection_reason'] != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Reason: ${order['rejection_reason']}',
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-          ],
+  void _showRejectDialog(BuildContext context, String orderId) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Reject Order"),
+        content: TextField(
+          controller: reasonController,
+          decoration: const InputDecoration(hintText: "Reason for rejection"),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _updateStatus(
+                orderId,
+                "Cancelled",
+                reason: reasonController.text,
+              );
+            },
+            child: const Text("Reject", style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
-}
-
-/* ---------------- ACTIONS ---------------- */
-
-Future<void> acceptOrder(String orderId) async {
-  await Supabase.instance.client
-      .from('orders')
-      .update({'status': 'accepted'})
-      .eq('id', orderId);
-}
-
-Future<void> rejectOrder(BuildContext context, String orderId) async {
-  final controller = TextEditingController();
-
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Reject Order'),
-      content: TextField(
-        controller: controller,
-        decoration: const InputDecoration(hintText: 'Reason for rejection'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await Supabase.instance.client
-                .from('orders')
-                .update({
-                  'status': 'rejected',
-                  'rejection_reason': controller.text,
-                })
-                .eq('id', orderId);
-
-            if (!context.mounted) return;
-            Navigator.pop(context);
-          },
-          child: const Text('Reject'),
-        ),
-      ],
-    ),
-  );
 }

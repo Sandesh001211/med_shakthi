@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
-import '../cart/presentation/screens/cart_page.dart';
 import '../orders/orders_page.dart';
 import '../profile/presentation/screens/chat_list_screen.dart';
 import '../profile/presentation/screens/supplier_category_page.dart';
 import '../profile/presentation/screens/supplier_payout_page.dart';
 import '../banners/screens/manage_banners_screen.dart';
 import '../profile/presentation/screens/supplier_profile_screen.dart';
-import '../profile/presentation/screens/supplier_wishlist_page.dart';
 import '../supplier/inventory/ui/add_product_page.dart';
+import '../supplier/orders/supplier_orders_page.dart'; // Import the new page
+import '../supplier/sales/sales_analytics_page.dart';
+import '../../core/theme/theme_provider.dart';
+import 'package:provider/provider.dart';
+import '../supplier/inventory/ui/my_products_page.dart';
+import '../supplier/sales/sales_stats_service.dart';
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});
@@ -19,33 +23,28 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddProductPage()),
+      );
+    } else {
+      setState(() => _selectedIndex = index);
+    }
   }
 
   late final List<Widget> _pages = [
     const SupplierDashboardHome(),
     const SupplierCategoryPage(),
-    const SupplierWishlistPage(),
-    const OrdersPage(),
-    const SupplierProfileScreen(),
+    const SizedBox(), // Placeholder for Add Product (handled by onTap)
+    const SupplierOrdersPage(), // Updated to SupplierOrdersPage
+    const MyProductsPage(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
-      //  FAB ADDED - Shows on ALL tabs!
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddProductPage()),
-          );
-        },
-        backgroundColor: const Color(0xFF4CA6A8),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Add Product", style: TextStyle(color: Colors.white)),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(child: _pages[_selectedIndex]),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -54,23 +53,33 @@ class _SupplierDashboardState extends State<SupplierDashboard> {
         showUnselectedLabels: true,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view),
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home_filled, size: 26),
+            label: "Home",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.grid_view, size: 26),
             label: "Category",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            label: "Wishlist",
+            icon: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFF4CA6A8),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 24),
+            ),
+            label: "",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long, size: 26),
             label: "Order",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: "Profile",
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.inventory_2_outlined, size: 26),
+            label: "My Products",
           ),
         ],
       ),
@@ -93,14 +102,14 @@ class SupplierDashboardHome extends StatelessWidget {
           const SizedBox(height: 20),
           _buildPromoBanner(),
           const SizedBox(height: 30),
-          _buildSectionHeader("Categories"),
+          _buildSectionHeader(context, "Categories"),
           const SizedBox(height: 15),
           _buildCategoryList(context),
           const SizedBox(height: 30),
-          _buildSectionHeader("Performance Stats"),
+          _buildSectionHeader(context, "Performance Stats"),
           const SizedBox(height: 15),
-          _buildPerformanceGrid(),
-          const SizedBox(height: 100), // ✅ CHANGED: Space for FAB
+          _buildPerformanceGrid(context),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -109,13 +118,24 @@ class SupplierDashboardHome extends StatelessWidget {
   Widget _buildTopBar(BuildContext context) {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SupplierProfileScreen()),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(
+              Icons.person_outline,
+              color: Theme.of(context).iconTheme.color,
+            ),
           ),
-          child: const Icon(Icons.grid_view_rounded, color: Colors.black54),
         ),
         const SizedBox(width: 15),
 
@@ -123,7 +143,7 @@ class SupplierDashboardHome extends StatelessWidget {
           child: Container(
             height: 50,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(25),
             ),
             child: const TextField(
@@ -139,39 +159,122 @@ class SupplierDashboardHome extends StatelessWidget {
 
         const SizedBox(width: 15),
 
-        //  Clickable Cart Icon
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CartPage()),
-            );
-          },
-          child: Stack(
-            children: const [
-              CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.shopping_cart_outlined, color: Colors.black),
-              ),
-              Positioned(
-                right: 0,
-                child: CircleAvatar(
-                  radius: 8,
-                  backgroundColor: Color(0xFF4CA6A8),
-                  child: Text(
-                    "3",
-                    style: TextStyle(fontSize: 10, color: Colors.white),
-                  ),
+        // Theme Toggle (Replaced Cart)
+        Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return GestureDetector(
+              onTap: () {
+                themeProvider.toggleTheme();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: Theme.of(context).iconTheme.color,
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );
   }
 
   Widget _buildPromoBanner() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: SalesStatsService().fetchSalesStats(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildBannerContainer(
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          );
+        }
+
+        // Default values if error or empty
+        final growth = snapshot.data?['growth'] ?? 0.0;
+        final revenue = snapshot.data?['totalRevenue'] ?? 0.0;
+
+        return _buildBannerContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Supplier Growth",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.trending_up,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "+$growth%",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Total Revenue: ₹${revenue.toStringAsFixed(2)}",
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SalesAnalyticsPage(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF4CA6A8),
+                  shape: const StadiumBorder(),
+                  elevation: 0,
+                ),
+                child: const Text("View Report"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBannerContainer({required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -182,49 +285,28 @@ class SupplierDashboardHome extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Supplier Growth",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Monthly payout is ready",
-            style: TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF4CA6A8),
-              shape: const StadiumBorder(),
-              elevation: 0,
-            ),
-            child: const Text("View Report"),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4CA6A8).withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
+      child: child,
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2D2D2D),
+            color: Theme.of(context).textTheme.titleLarge?.color,
           ),
         ),
         const Text(
@@ -240,11 +322,31 @@ class SupplierDashboardHome extends StatelessWidget {
 
   Widget _buildCategoryList(BuildContext context) {
     final List<Map<String, dynamic>> cats = [
-      {"icon": Icons.campaign, "label": "Banners"},
-      {"icon": Icons.inventory_2, "label": "Orders"},
-      {"icon": Icons.analytics, "label": "Sales"},
-      {"icon": Icons.people, "label": "Clients"},
-      {"icon": Icons.account_balance_wallet, "label": "Payouts"},
+      {
+        'icon': Icons.inventory,
+        'name': 'Inventory',
+        'page': const MyProductsPage(),
+      },
+      {
+        'icon': Icons.shopping_bag,
+        'name': 'Orders',
+        'page': const SupplierOrdersPage(),
+      },
+      {
+        'icon': Icons.analytics,
+        'name': 'Analytics',
+        'page': const SalesAnalyticsPage(),
+      },
+      {
+        'icon': Icons.campaign,
+        'name': 'Banners',
+        'page': const ManageBannersScreen(),
+      },
+      {
+        'icon': Icons.account_balance_wallet,
+        'name': 'Payouts',
+        'page': const SupplierPayoutPage(),
+      },
     ];
 
     return SizedBox(
@@ -283,8 +385,9 @@ class SupplierDashboardHome extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const SupplierPayoutPage()),
                 );
               } else if (label == "Sales") {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Sales page coming soon")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SalesAnalyticsPage()),
                 );
               }
             },
@@ -293,8 +396,8 @@ class SupplierDashboardHome extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(18),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -305,9 +408,9 @@ class SupplierDashboardHome extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black54,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -319,7 +422,7 @@ class SupplierDashboardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildPerformanceGrid() {
+  Widget _buildPerformanceGrid(BuildContext context) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -328,17 +431,23 @@ class SupplierDashboardHome extends StatelessWidget {
       mainAxisSpacing: 15,
       childAspectRatio: 0.80,
       children: [
-        _statItem("Revenue", "₹ 4.5L", "Supplements", "+12%"),
-        _statItem("Pending", "14 Units", "Medicine", "Alert"),
+        _statItem(context, "Revenue", "₹ 4.5L", "Supplements", "+12%"),
+        _statItem(context, "Pending", "14 Units", "Medicine", "Alert"),
       ],
     );
   }
 
-  Widget _statItem(String title, String value, String sub, String badge) {
+  Widget _statItem(
+    BuildContext context,
+    String title,
+    String value,
+    String sub,
+    String badge,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -348,7 +457,7 @@ class SupplierDashboardHome extends StatelessWidget {
             height: 55,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FA),
+              color: Theme.of(context).scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(Icons.bar_chart, color: Colors.grey, size: 40),

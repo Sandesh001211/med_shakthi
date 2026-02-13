@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:med_shakthi/src/core/utils/custom_snackbar.dart';
 import 'order_success_screen.dart';
 
 // import '../../../cart/cart_data.dart';
@@ -22,8 +23,35 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
 
   String selectedMethod = "MasterCard";
   bool _loading = false;
+  List<Map<String, dynamic>> _paymentMethods = [];
+  bool _fetchingMethods = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPaymentMethods();
+  }
+
+  Future<void> _fetchPaymentMethods() async {
+    // Simulate API call to fetch payment methods
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) {
+      setState(() {
+        _paymentMethods = [
+          {"title": "MasterCard", "icon": Icons.credit_card},
+          {"title": "PayPal", "icon": Icons.account_balance_wallet},
+          {"title": "Visa", "icon": Icons.credit_score},
+          {"title": "Apple Pay", "icon": Icons.apple},
+        ];
+        _fetchingMethods = false;
+      });
+    }
+  }
 
   Widget paymentTile(String title, IconData icon) {
+    const primaryColor = Color(0xFF5A9CA0);
+    final isSelected = selectedMethod == title;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.zero,
@@ -31,7 +59,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: selectedMethod == title ? Colors.teal : Colors.transparent,
+          color: isSelected ? primaryColor : Colors.transparent,
           width: 1.5,
         ),
       ),
@@ -43,11 +71,11 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
             selectedMethod = value!;
           });
         },
-        activeColor: Colors.teal,
+        activeColor: primaryColor,
         secondary: Icon(
           icon,
           size: 28,
-          color: selectedMethod == title ? Colors.teal : null,
+          color: isSelected ? primaryColor : null,
         ),
         title: Text(
           title,
@@ -65,16 +93,12 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
     final user = supabase.auth.currentUser;
 
     if (user == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("User not logged in")));
+      showCustomSnackBar(context, "User not logged in", isError: true);
       return;
     }
 
     if (cart.items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Cart is empty")));
+      showCustomSnackBar(context, "Cart is empty", isError: true);
       return;
     }
 
@@ -138,9 +162,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
       //  INSERT all at once
       await supabase.from("orders").insert(rows);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(" Order Placed Successfully")),
-      );
+      showCustomSnackBar(context, "Order Placed Successfully");
 
       cart.clearCart();
       Navigator.pushReplacement(
@@ -148,9 +170,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(" Order failed: $e")));
+      showCustomSnackBar(context, "Order failed: $e", isError: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -186,22 +206,28 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              paymentTile("MasterCard", Icons.credit_card),
-              paymentTile("PayPal", Icons.account_balance_wallet),
-              paymentTile("Visa", Icons.credit_score),
-              paymentTile("Apple Pay", Icons.apple),
+              if (_fetchingMethods)
+                const Center(child: CircularProgressIndicator())
+              else ...[
+                ..._paymentMethods.map((method) {
+                  return paymentTile(method["title"], method["icon"]);
+                }).toList(),
 
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add, color: Colors.teal),
-                  label: const Text(
-                    "Add New Card",
-                    style: TextStyle(color: Colors.teal),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {},
+                    icon: Icon(
+                      Icons.add,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    label: Text(
+                      "Add New Card",
+                      style: TextStyle(color: Theme.of(context).primaryColor),
+                    ),
                   ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 16),
               const Text(
@@ -229,7 +255,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                   ElevatedButton(
                     onPressed: () {},
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
+                      backgroundColor: const Color(0xFF5A9CA0),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 16,
@@ -283,7 +309,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _placeOrder,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: const Color(0xFF5A9CA0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),

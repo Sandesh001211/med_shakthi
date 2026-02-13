@@ -5,11 +5,10 @@ import '../services/banner_service_supabase.dart';
 
 class BannerCarousel extends StatefulWidget {
   final Function(String category)? onBannerTap;
+  final Widget? fallbackWidget;
 
-  const BannerCarousel({
-    Key? key,
-    this.onBannerTap,
-  }) : super(key: key);
+  const BannerCarousel({Key? key, this.onBannerTap, this.fallbackWidget})
+    : super(key: key);
 
   @override
   State<BannerCarousel> createState() => _BannerCarouselState();
@@ -36,15 +35,22 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 
   void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_banners.isEmpty) return;
-      
-      final nextPage = (_currentPage + 1) % _banners.length;
-      _pageController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_banners.length <= 1) return;
+
+      if (_pageController.hasClients) {
+        final nextPage = _pageController.page!.round() + 1;
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOutCubic,
+        );
+      }
     });
   }
 
@@ -65,7 +71,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
         _banners = banners;
 
         if (banners.isEmpty) {
-          return _buildEmptyState();
+          return widget.fallbackWidget ?? _buildEmptyState();
         }
 
         return Column(
@@ -76,12 +82,13 @@ class _BannerCarouselState extends State<BannerCarousel> {
                 controller: _pageController,
                 onPageChanged: (index) {
                   setState(() {
-                    _currentPage = index;
+                    _currentPage = index % banners.length;
                   });
                 },
-                itemCount: banners.length,
+                // Infinite scroll simulation
+                itemCount: banners.length * 1000,
                 itemBuilder: (context, index) {
-                  return _buildBannerCard(banners[index]);
+                  return _buildBannerCard(banners[index % banners.length]);
                 },
               ),
             ),
@@ -121,14 +128,18 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF00D9C0),
-                            const Color(0xFF00A896),
-                          ],
+                          colors: [Color(0xFF00D9C0), Color(0xFF00A896)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Colors.white54,
+                          size: 40,
                         ),
                       ),
                     );
@@ -264,9 +275,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF00D9C0),
-        ),
+        child: CircularProgressIndicator(color: Color(0xFF00D9C0)),
       ),
     );
   }

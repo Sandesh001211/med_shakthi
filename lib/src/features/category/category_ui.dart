@@ -1,15 +1,100 @@
 import 'package:flutter/material.dart';
-import 'category_products_page.dart';
-import 'product_filter_sheet.dart';
-import 'b2b_product_filter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:med_shakthi/src/features/category/category_products_page.dart';
+import 'package:med_shakthi/src/features/search/presentation/screens/global_search_page.dart';
+import 'package:med_shakthi/src/features/category/product_filter_sheet.dart';
+import 'package:med_shakthi/src/features/category/b2b_product_filter.dart';
 
-class CategoryPageNew extends StatelessWidget {
+class CategoryPageNew extends StatefulWidget {
   const CategoryPageNew({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
+  State<CategoryPageNew> createState() => _CategoryPageNewState();
+}
 
+class _CategoryPageNewState extends State<CategoryPageNew> {
+  final supabase = Supabase.instance.client;
+  List<CategoryItem> categories = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      // Fetch distinct categories from products table
+      final response = await supabase
+          .from('products')
+          .select('category')
+          .withConverter<List<String>>((data) {
+            final list = data as List<dynamic>;
+            return list
+                .map((e) => e['category'] as String?)
+                .where((e) => e != null)
+                .cast<String>()
+                .toSet()
+                .toList();
+          });
+
+      if (mounted) {
+        setState(() {
+          categories = response.map((cat) {
+            return CategoryItem(
+              title: cat,
+              icon: _getIconForCategory(cat),
+              skuCountText:
+                  'Explore', // Dynamic count is expensive, simplifying
+              badgeText: 'Available',
+              badgeColor: _getColorForCategory(cat),
+            );
+          }).toList();
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+      if (mounted) {
+        // Fallback to static data if error
+        setState(() {
+          categories = [
+            ...corePharmacyCategories,
+            ...personalCareCategories,
+            ...deviceCategories,
+          ];
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  IconData _getIconForCategory(String category) {
+    final lower = category.toLowerCase();
+    if (lower.contains('medicine')) return Icons.medication;
+    if (lower.contains('vitamin')) return Icons.wb_sunny;
+    if (lower.contains('health')) return Icons.favorite;
+    if (lower.contains('care')) return Icons.spa;
+    if (lower.contains('device')) return Icons.medical_services;
+    if (lower.contains('lab')) return Icons.biotech;
+    if (lower.contains('baby')) return Icons.child_care;
+    if (lower.contains('surgical')) return Icons.local_hospital;
+    return Icons.category;
+  }
+
+  Color _getColorForCategory(String category) {
+    final lower = category.toLowerCase();
+    if (lower.contains('medicine')) return Colors.blue;
+    if (lower.contains('vitamin')) return Colors.orange;
+    if (lower.contains('health')) return Colors.red;
+    if (lower.contains('care')) return Colors.green;
+    if (lower.contains('device')) return Colors.purple;
+    return Colors.teal;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -26,100 +111,48 @@ class CategoryPageNew extends StatelessWidget {
           ),
         ),
       ),
-      body: const _CategoryBody(),
-    );
-  }
-}
-
-class _CategoryBody extends StatelessWidget {
-  const _CategoryBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  _SearchAndFilterBar(),
-                  SizedBox(height: 20),
-                  _CategoryGroupTitle(title: 'Core Pharmacy'),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 12.0,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          _SearchAndFilterBar(),
+                          SizedBox(height: 20),
+                          _CategoryGroupTitle(title: 'All Categories'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 0.85,
+                          ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = categories[index];
+                        return CategoryCard(item: item, index: index);
+                      }, childCount: categories.length),
+                    ),
+                  ),
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
                 ],
               ),
             ),
-          ),
-
-          // Core Pharmacy grid
-          _buildAnimatedGrid(corePharmacyCategories, 0),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 20.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [_CategoryGroupTitle(title: 'Personal Care')],
-              ),
-            ),
-          ),
-
-          // Personal care grid
-          _buildAnimatedGrid(
-            personalCareCategories,
-            corePharmacyCategories.length,
-          ),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 20.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [_CategoryGroupTitle(title: 'Devices & Tools')],
-              ),
-            ),
-          ),
-
-          // Devices grid
-          _buildAnimatedGrid(
-            deviceCategories,
-            corePharmacyCategories.length + personalCareCategories.length,
-          ),
-
-          const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnimatedGrid(List<CategoryItem> items, int startIndex) {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.85,
-        ),
-        delegate: SliverChildBuilderDelegate((context, index) {
-          final item = items[index];
-          final globalIndex = startIndex + index;
-          return CategoryCard(item: item, index: globalIndex);
-        }, childCount: items.length),
-      ),
     );
   }
 }
@@ -133,39 +166,49 @@ class _SearchAndFilterBar extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search medicines, categories…',
-                hintStyle: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  size: 22,
-                  color: Theme.of(
-                    context,
-                  ).iconTheme.color?.withValues(alpha: 0.6),
-                ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GlobalSearchPage()),
+              );
+            },
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: AbsorbPointer(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search medicines, categories…',
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: 22,
+                      color: Theme.of(
+                        context,
+                      ).iconTheme.color?.withValues(alpha: 0.6),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -186,7 +229,13 @@ class _SearchAndFilterBar extends StatelessWidget {
             );
 
             if (filters != null) {
-              debugPrint('Applied sort: ${filters.sortBy}');
+              if (!context.mounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GlobalSearchPage(initialFilter: filters),
+                ),
+              );
             }
           },
           child: Container(
@@ -251,7 +300,7 @@ class CategoryItem {
   });
 }
 
-// Example data
+// Fallback Data
 final List<CategoryItem> corePharmacyCategories = [
   CategoryItem(
     title: 'Medicines',

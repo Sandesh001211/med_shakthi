@@ -121,7 +121,11 @@ class SupplierPayoutPage extends StatelessWidget {
         icon: const Icon(Icons.account_balance),
         label: const Text(
           "Withdraw Balance",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: themeColor,

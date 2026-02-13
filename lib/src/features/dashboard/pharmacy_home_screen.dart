@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:med_shakthi/src/features/category/category_ui.dart';
 import 'package:med_shakthi/src/features/category/category_products_page.dart';
-import 'package:med_shakthi/src/features/category/devices_page.dart';
+import 'package:med_shakthi/src/features/search/presentation/screens/global_search_page.dart';
+
 import 'package:med_shakthi/src/features/products/data/repositories/product_repository.dart';
 import 'package:med_shakthi/src/features/wishlist/presentation/screens/wishlist_page.dart';
 import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
-import 'package:med_shakthi/src/features/wishlist/data/models/wishlist_item_model.dart';
+
 import 'package:med_shakthi/src/features/cart/presentation/screens/cart_page.dart';
 import 'package:med_shakthi/src/features/orders/orders_page.dart';
 import 'package:med_shakthi/src/features/products/presentation/screens/product_page.dart';
@@ -20,7 +21,10 @@ import 'package:med_shakthi/src/features/products/data/models/product_model.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:med_shakthi/src/features/banners/widgets/banner_carousel.dart';
+import 'package:med_shakthi/src/features/banners/widgets/static_pharmacy_banners.dart';
 import '../profile/presentation/screens/qr_scanner_page.dart';
+import 'package:med_shakthi/src/core/utils/smart_product_image.dart';
+import 'package:med_shakthi/src/core/utils/custom_snackbar.dart';
 
 /// This screen implements the "Med Shakti home page" for Retailers
 class PharmacyHomeScreen extends StatefulWidget {
@@ -34,6 +38,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
   // State allows us to track dynamic changes, like the selected tab in the navigation bar.
   int _selectedIndex = 0;
   final ProductRepository _productRepo = ProductRepository();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -47,7 +52,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(
         index: _selectedIndex,
         children: [
@@ -85,7 +90,35 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             // Top Bar
             const SizedBox(height: 24),
             // Banner Carousel from Supabase
-            const BannerCarousel(),
+            BannerCarousel(
+              fallbackWidget: const StaticPharmacyBanners(),
+              onBannerTap: (category) {
+                if (category.toLowerCase() == "medicines") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const CategoryProductsPage(categoryName: "Medicines"),
+                    ),
+                  );
+                } else if (category.toLowerCase() == "lab test") {
+                  // Navigate to Lab Tests (placeholder if not exists)
+                  showCustomSnackBar(context, "Lab Tests coming soon");
+                } else if (category.toLowerCase() == "upload rx") {
+                  // Navigate to Upload Prescription (placeholder)
+                  showCustomSnackBar(context, "Upload Rx coming soon");
+                } else {
+                  // Default fallback
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CategoryProductsPage(categoryName: category),
+                    ),
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 24),
             _buildSectionTitle("Categories", "See All", () {
               setState(() => _selectedIndex = 1);
@@ -122,7 +155,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             height: 50,
             width: 50,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
@@ -133,9 +166,9 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               Icons.person_outline, //  Profile icon
-              color: Colors.black87,
+              color: Theme.of(context).iconTheme.color,
               size: 26,
             ),
           ),
@@ -149,7 +182,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
             ),
@@ -158,10 +191,37 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                 const Icon(Icons.search, color: Colors.grey),
                 const SizedBox(width: 8),
 
-                const Expanded(
-                  child: Text(
-                    "Search medicine",
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const GlobalSearchPage(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      color: Colors.transparent, // Hit test
+                      child: IgnorePointer(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: "Search medicine...",
+                            hintStyle: TextStyle(
+                              color: Theme.of(context).hintColor,
+                              fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
 
@@ -173,9 +233,9 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                       MaterialPageRoute(builder: (_) => const QRScannerPage()),
                     );
                   },
-                  child: const Icon(
+                  child: Icon(
                     Icons.camera_alt_outlined,
-                    color: Colors.black,
+                    color: Theme.of(context).iconTheme.color,
                   ),
                 ),
               ],
@@ -200,7 +260,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                 height: 50,
                 width: 50,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
@@ -211,9 +271,9 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.shopping_cart_outlined,
-                  color: Colors.black87,
+                  color: Theme.of(context).iconTheme.color,
                   size: 24,
                 ),
               ),
@@ -261,7 +321,11 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.titleLarge?.color,
+          ),
         ),
         GestureDetector(
           onTap: onAction,
@@ -308,18 +372,23 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
     return GestureDetector(
       onTap: () {
         // Navigate to CategoryProductsPage when Medicines is tapped
-        if (label == "Medicines") {
+        if (label == "Medicines" ||
+            label == "Health" ||
+            label == "Vitamins" ||
+            label == "Care") {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) =>
-                  const CategoryProductsPage(categoryName: "Medicines"),
+              builder: (context) => CategoryProductsPage(categoryName: label),
             ),
           );
         } else if (label == "Devices") {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const DevicesPage()),
+            MaterialPageRoute(
+              builder: (context) =>
+                  const CategoryProductsPage(categoryName: "Devices"),
+            ),
           );
         }
         // You can add navigation for other categories here as well
@@ -330,7 +399,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             height: 60,
             width: 60,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -340,15 +409,21 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                 ),
               ],
             ),
-            child: Center(child: Icon(icon, color: Colors.black54, size: 28)),
+            child: Center(
+              child: Icon(
+                icon,
+                color: Theme.of(context).iconTheme.color,
+                size: 28,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Colors.black87,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
           ),
         ],
@@ -368,7 +443,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
         margin: const EdgeInsets.only(right: 16),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -383,13 +458,10 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
           children: [
             Expanded(
               child: Center(
-                child: Image.network(
-                  product.image,
+                child: SmartProductImage(
+                  imageUrl: product.image,
+                  category: product.category,
                   fit: BoxFit.contain,
-                  errorBuilder: (c, e, s) => Container(
-                    color: Colors.grey[100],
-                    child: const Center(child: Icon(Icons.image_not_supported)),
-                  ),
                 ),
               ),
             ),
@@ -424,10 +496,10 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                   // Prevent price overflow
                   child: Text(
                     "₹${product.price.toStringAsFixed(2)}",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Colors.black87,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -450,9 +522,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
                       context,
                       MaterialPageRoute(builder: (_) => const CartPage()),
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Item added to cart ")),
-                    );
+                    showCustomSnackBar(context, "Item added to cart");
                   },
                   child: Container(
                     height: 32,
@@ -487,7 +557,8 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
             return const Center(child: Text("No products available"));
           }
 
-          final products = snapshot.data!;
+          final allProducts = snapshot.data!;
+          final products = allProducts;
 
           return ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -503,271 +574,6 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
     );
   }
 
-  final SupabaseClient supabase = Supabase.instance.client;
-
-  Future<List<Product>> _fetchProducts() async {
-    final res = await supabase
-        .from('products')
-        .select()
-        .order('created_at', ascending: false);
-
-    return (res as List)
-        .map((e) => Product.fromMap(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Builds the horizontal list of product cards
-  Widget _buildBestsellersList() {
-    return FutureBuilder<List<Product>>(
-      future: _fetchProducts(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 280, // Increased from 260
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return SizedBox(
-            height: 280, // Increased from 260
-            child: Center(child: Text("Error: ${snapshot.error}")),
-          );
-        }
-
-        final products = snapshot.data ?? [];
-
-        if (products.isEmpty) {
-          return const SizedBox(
-            height: 280, // Increased from 260
-            child: Center(child: Text("No products available")),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.7,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: products.length > 10 ? 10 : products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-
-              return GestureDetector(
-                //  Product details page open (same as before)
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProductPage(product: product),
-                  ),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.08),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      //  Image with heart icon
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            Center(
-                              child: Image.network(
-                                product.image,
-                                fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => Container(
-                                  color: Colors.grey[100],
-                                  child: const Center(
-                                    child: Icon(Icons.image_not_supported),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Heart icon for wishlist
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: Consumer<WishlistService>(
-                                builder: (context, wishlistService, child) {
-                                  final isInWishlist = wishlistService
-                                      .isInWishlist(product.id);
-                                  return GestureDetector(
-                                    onTap: () {
-                                      if (isInWishlist) {
-                                        wishlistService.removeFromWishlist(
-                                          product.id,
-                                        );
-                                      } else {
-                                        // Convert Product to WishlistItem
-                                        final wishlistItem = WishlistItem(
-                                          id: product.id,
-                                          name: product.name,
-                                          price: product.price,
-                                          image: product.image,
-                                        );
-                                        wishlistService.addToWishlist(
-                                          wishlistItem,
-                                        );
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Icon(
-                                        isInWishlist
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        color: isInWishlist
-                                            ? Colors.red
-                                            : Colors.grey[700],
-                                        size: 22,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      //  Title
-                      Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      //  Category
-                      Text(
-                        product.category,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      //  Rating Row (dynamic)
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            product.rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      //  Price and Add Button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            // Prevent price overflow in list Bestseller
-                            child: Text(
-                              "₹${product.price.toStringAsFixed(2)}",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.black87,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-
-                          //  Add Button (+) -> cart add + open CartPage
-                          InkWell(
-                            onTap: () {
-                              //  stop GestureDetector tap (details page)
-                              // otherwise both tap trigger ho jayega
-                              // so we do: onTapDown trick not needed, just use InkWell here
-
-                              final cartItem = CartItem(
-                                id: product.id,
-                                //  UUID from Supabase
-                                name: product.name,
-                                title: product.name,
-                                brand: product.category,
-                                size: "Standard",
-                                price: product.price,
-                                imagePath: product.image,
-                                imageUrl: product.image,
-                              );
-
-                              context.read<CartData>().addItem(cartItem);
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const CartPage(),
-                                ),
-                              );
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Item added to cart "),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              height: 32,
-                              width: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF5A9CA0),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
   /// Custom Bottom Navigation Bar
   Widget _buildBottomNavigationBar() {
     final navItems = [
@@ -780,7 +586,7 @@ class _PharmacyHomeScreenState extends State<PharmacyHomeScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),

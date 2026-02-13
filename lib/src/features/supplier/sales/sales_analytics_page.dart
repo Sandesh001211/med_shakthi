@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'sales_stats_service.dart';
 
 class SalesAnalyticsPage extends StatefulWidget {
   const SalesAnalyticsPage({super.key});
@@ -184,47 +185,62 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
   }
 
   Widget _buildSalesSummaryCards(bool isDark) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.4,
-      children: [
-        _buildSummaryCard(
-          'Total Sales',
-          '₹8.9L',
-          '+14%',
-          Icons.trending_up_rounded,
-          const Color(0xFF4CA6A8),
-          isDark,
-        ),
-        _buildSummaryCard(
-          'Total Orders',
-          '1,247',
-          '+8%',
-          Icons.shopping_bag_rounded,
-          const Color(0xFF6366F1),
-          isDark,
-        ),
-        _buildSummaryCard(
-          'Profit Growth',
-          '23.5%',
-          '+5.2%',
-          Icons.show_chart_rounded,
-          const Color(0xFF10B981),
-          isDark,
-        ),
-        _buildSummaryCard(
-          'Pending Amount',
-          '₹1.2L',
-          '-3%',
-          Icons.pending_actions_rounded,
-          const Color(0xFFF59E0B),
-          isDark,
-        ),
-      ],
+    return FutureBuilder<Map<String, dynamic>>(
+      future: SalesStatsService().fetchSalesStats(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final data = snapshot.data ?? {};
+        final revenue = data['totalRevenue'] ?? 0.0;
+        final orders = data['totalOrders'] ?? 0;
+        final pending = data['pendingOrders'] ?? 0;
+        final growth = data['growth'] ?? 0.0;
+
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.4,
+          children: [
+            _buildSummaryCard(
+              'Total Revenue',
+              '₹${revenue.toStringAsFixed(0)}',
+              '+$growth%',
+              Icons.trending_up_rounded,
+              const Color(0xFF4CA6A8),
+              isDark,
+            ),
+            _buildSummaryCard(
+              'Total Orders',
+              '$orders',
+              '+8%', // Placeholder for orders growth
+              Icons.shopping_bag_rounded,
+              const Color(0xFF6366F1),
+              isDark,
+            ),
+            _buildSummaryCard(
+              'Profit Growth',
+              '$growth%',
+              '+$growth%',
+              Icons.show_chart_rounded,
+              const Color(0xFF10B981),
+              isDark,
+            ),
+            _buildSummaryCard(
+              'Pending Orders',
+              '$pending',
+              '-3%', // Placeholder
+              Icons.pending_actions_rounded,
+              const Color(0xFFF59E0B),
+              isDark,
+            ),
+          ],
+        );
+      },
     );
   }
 
