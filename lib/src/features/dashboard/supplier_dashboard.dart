@@ -7,6 +7,7 @@ import '../profile/presentation/screens/supplier_payout_page.dart';
 import '../banners/screens/manage_banners_screen.dart';
 import '../profile/presentation/screens/supplier_profile_screen.dart';
 import '../profile/presentation/screens/supplier_wishlist_page.dart';
+import '../supplier/inventory/ui/add_product_page.dart';
 
 class SupplierDashboard extends StatefulWidget {
   const SupplierDashboard({super.key});

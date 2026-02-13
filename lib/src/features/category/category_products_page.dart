@@ -48,7 +48,10 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
 
         // Expiry filter - YOUR expiry_date column (date)
         if (filter.expiryBefore != null) {
-          query = query.lt('expiry_date', filter.expiryBefore!.toIso8601String());
+          query = query.lt(
+            'expiry_date',
+            filter.expiryBefore!.toIso8601String(),
+          );
         }
 
         // Sorting - YOUR columns only
@@ -70,7 +73,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
       }
 
       final response = await query.limit(100);
-      
+
       if (mounted) {
         products = List<Map<String, dynamic>>.from(response);
         visibleProducts = List<Map<String, dynamic>>.from(products);
@@ -78,9 +81,9 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch products: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to fetch products: $e')));
         setState(() => loading = false);
       }
     }
@@ -103,16 +106,19 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
       });
       return;
     }
-    
+
     final q = query.toLowerCase();
     final filtered = products.where((p) {
       final name = p['name']?.toString().toLowerCase() ?? '';
       final brand = p['brand']?.toString().toLowerCase() ?? '';
       final generic = p['generic_name']?.toString().toLowerCase() ?? '';
       final sku = p['sku']?.toString().toLowerCase() ?? '';
-      return name.contains(q) || brand.contains(q) || generic.contains(q) || sku.contains(q);
+      return name.contains(q) ||
+          brand.contains(q) ||
+          generic.contains(q) ||
+          sku.contains(q);
     }).toList();
-    
+
     setState(() {
       visibleProducts = filtered;
     });
@@ -159,7 +165,9 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
         ],
       ),
       body: loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xff2b9c8f)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xff2b9c8f)),
+            )
           : Column(
               children: [
                 // Search bar
@@ -170,7 +178,10 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                     onChanged: applySearch,
                     decoration: InputDecoration(
                       hintText: 'Search products by name, brand, SKU...',
-                      prefixIcon: const Icon(Icons.search, color: Color(0xff2b9c8f)),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xff2b9c8f),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -188,18 +199,20 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                searchController.text.isNotEmpty 
-                                    ? Icons.search_off 
+                                searchController.text.isNotEmpty
+                                    ? Icons.search_off
                                     : Icons.inventory_2_outlined,
-                                size: 64, 
+                                size: 64,
                                 color: Colors.grey[400],
                               ),
                               const SizedBox(height: 16),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 32),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                ),
                                 child: Text(
-                                  searchController.text.isNotEmpty 
-                                      ? 'No products found matching your search' 
+                                  searchController.text.isNotEmpty
+                                      ? 'No products found matching your search'
                                       : 'No products available in this category',
                                   style: TextStyle(
                                     fontSize: 16,
@@ -226,7 +239,11 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                           itemCount: visibleProducts.length,
                           itemBuilder: (context, index) {
                             final product = visibleProducts[index];
-                            final price = double.tryParse(product['price']?.toString() ?? '0') ?? 0.0;
+                            final price =
+                                double.tryParse(
+                                  product['price']?.toString() ?? '0',
+                                ) ??
+                                0.0;
 
                             return Card(
                               elevation: 2,
@@ -242,19 +259,24 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                                     name: product['name'] ?? 'Unknown Product',
                                     price: price,
                                     image: product['image_url'] ?? '',
-                                    category: product['category'] ?? widget.categoryName,
+                                    category:
+                                        product['category'] ??
+                                        widget.categoryName,
                                     rating: 0.0,
                                   );
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => ProductPage(product: productModel),
+                                      builder: (_) =>
+                                          ProductPage(product: productModel),
                                     ),
                                   );
                                 },
                                 leading: SmartProductImage(
                                   imageUrl: product['image_url'],
-                                  category: product['category'] ?? widget.categoryName,
+                                  category:
+                                      product['category'] ??
+                                      widget.categoryName,
                                   width: 56,
                                   height: 56,
                                 ),
@@ -291,10 +313,17 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                                     Row(
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: Colors.orange.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: Colors.orange.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Text(
                                             'Expires: ${_formatExpiry(product['expiry_date'])}',
@@ -305,15 +334,25 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        if (product['sub_category'] != null && product['sub_category'].toString().isNotEmpty)
+                                        if (product['sub_category'] != null &&
+                                            product['sub_category']
+                                                .toString()
+                                                .isNotEmpty)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: Colors.blue.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(8),
+                                              color: Colors.blue.withValues(
+                                                alpha: 0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              product['sub_category'].toString(),
+                                              product['sub_category']
+                                                  .toString(),
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 color: Colors.blue[700],

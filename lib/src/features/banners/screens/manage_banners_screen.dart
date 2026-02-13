@@ -31,7 +31,10 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00D9C0)),
+            icon: const Icon(
+              Icons.add_circle_outline,
+              color: Color(0xFF00D9C0),
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -50,9 +53,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF00D9C0),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFF00D9C0)),
             );
           }
 
@@ -84,19 +85,14 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const CreateBannerScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const CreateBannerScreen()),
           );
         },
         backgroundColor: const Color(0xFF00D9C0),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Create Banner',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -114,7 +110,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.1),
+            color: theme.shadowColor.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -136,7 +132,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       height: 150,
-                      color: const Color(0xFF00D9C0).withOpacity(0.2),
+                      color: const Color(0xFF00D9C0).withValues(alpha: 0.2),
                       child: const Center(
                         child: Icon(
                           Icons.image_not_supported,
@@ -160,20 +156,20 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
                       color: isExpired
                           ? Colors.red
                           : isUpcoming
-                              ? Colors.orange
-                              : banner.active
-                                  ? const Color(0xFF00D9C0)
-                                  : Colors.grey,
+                          ? Colors.orange
+                          : banner.active
+                          ? const Color(0xFF00D9C0)
+                          : Colors.grey,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       isExpired
                           ? 'EXPIRED'
                           : isUpcoming
-                              ? 'UPCOMING'
-                              : banner.active
-                                  ? 'ACTIVE'
-                                  : 'INACTIVE',
+                          ? 'UPCOMING'
+                          : banner.active
+                          ? 'ACTIVE'
+                          : 'INACTIVE',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -209,7 +205,9 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
                 Text(
                   banner.subtitle,
                   style: TextStyle(
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                    color: theme.textTheme.bodyMedium?.color?.withValues(
+                      alpha: 0.7,
+                    ),
                     fontSize: 14,
                   ),
                   maxLines: 1,
@@ -220,10 +218,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
                 // Category & Dates
                 Row(
                   children: [
-                    _buildInfoChip(
-                      Icons.category_outlined,
-                      banner.category,
-                    ),
+                    _buildInfoChip(Icons.category_outlined, banner.category),
                     const SizedBox(width: 8),
                     _buildInfoChip(
                       Icons.calendar_today,
@@ -243,9 +238,8 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => CreateBannerScreen(
-                                existingBanner: banner,
-                              ),
+                              builder: (context) =>
+                                  CreateBannerScreen(existingBanner: banner),
                             ),
                           );
                         },
@@ -371,10 +365,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
         ],
       ),
@@ -410,10 +401,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
           const SizedBox(height: 8),
           const Text(
             'Create your first promotional banner',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
         ],
       ),
@@ -444,10 +432,7 @@ class _ManageBannersScreenState extends State<ManageBannersScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );

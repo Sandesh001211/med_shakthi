@@ -58,7 +58,7 @@ class BannerServiceSupabase {
   Future<String> _uploadBannerImage(XFile imageFile, String supplierId) async {
     try {
       final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${supplierId}.jpg';
+          '${DateTime.now().millisecondsSinceEpoch}_$supplierId.jpg';
       final filePath = '$supplierId/$fileName';
 
       // Read file as bytes for web compatibility
