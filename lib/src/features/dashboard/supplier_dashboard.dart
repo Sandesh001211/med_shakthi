@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
 // Internal Imports
@@ -131,21 +132,40 @@ class _SupplierDashboardHomeState extends State<SupplierDashboardHome> {
   List<Map<String, dynamic>> _categories = [];
   bool _isCategoriesLoading = true;
 
+  Timer? _refreshTimer;
+  final SalesStatsService _statsService = SalesStatsService();
+  StreamSubscription? _statsSubscription;
+  String? _supplierCode;
+  String? _supplierId;
+
   @override
   void initState() {
     super.initState();
     _loadAllData();
+    // ⏲️ Set up a periodic refresh for backup (in case real-time fails)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadAllData());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _statsSubscription?.cancel();
+    _statsService.dispose();
+    super.dispose();
   }
 
   Future<void> _loadAllData() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+    // Only show full loading spinner for the first load
+    if (_data == null) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
       // Parallel fetching
-      final statsFuture = SalesStatsService().fetchSalesStats();
+      final statsFuture = _statsService.fetchSalesStats();
       final categoryFuture = _fetchCategories();
 
       final results = await Future.wait([statsFuture, categoryFuture]);
@@ -153,17 +173,77 @@ class _SupplierDashboardHomeState extends State<SupplierDashboardHome> {
       if (mounted) {
         setState(() {
           _data = results[0] as Map<String, dynamic>;
-          // _categories is already set by _fetchCategories internally or we can assign here
           _isLoading = false;
         });
+        
+        // Set up real-time subscription after first load
+        if (_statsSubscription == null && _data != null) {
+          await _setupRealtimeSubscription();
+        }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _data == null) {
         setState(() {
           _hasError = true;
           _isLoading = false;
         });
       }
+    }
+  }
+  
+  /// Set up real-time subscription to database changes
+  Future<void> _setupRealtimeSubscription() async {
+    try {
+      // Get supplier info from Supabase
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      
+      final supplierData = await Supabase.instance.client
+          .from('suppliers')
+          .select('supplier_code, id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      
+      if (supplierData != null) {
+        _supplierCode = supplierData['supplier_code'];
+        _supplierId = supplierData['id'];
+        
+        // Subscribe to real-time updates
+        await _statsService.subscribeToRealtimeUpdates(_supplierCode!, _supplierId!);
+        
+        // Listen to the stats stream
+        _statsSubscription = _statsService.statsStream.listen((newStats) {
+          if (mounted) {
+            setState(() {
+              _data = newStats;
+            });
+            
+            // Show a subtle notification that data updated
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.refresh, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text('Dashboard updated with latest data'),
+                  ],
+                ),
+                backgroundColor: const Color(0xFF4CA6A8),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                margin: const EdgeInsets.all(16),
+              ),
+            );
+          }
+        });
+        
+        print('✅ Real-time dashboard updates enabled!');
+      }
+    } catch (e) {
+      print('❌ Error setting up real-time subscription: $e');
     }
   }
 
@@ -542,13 +622,33 @@ class _SupplierDashboardHomeState extends State<SupplierDashboardHome> {
         children: const [
           ShimmerWidget.rectangular(height: 150),
           ShimmerWidget.rectangular(height: 150),
+          ShimmerWidget.rectangular(height: 150),
+          ShimmerWidget.rectangular(height: 150),
         ],
       );
     }
 
-    // Prepare data
-    final revenue = (_data?['totalRevenue'] as num?)?.toDouble() ?? 0.0;
-    final pending = _data?['pendingOrders'] ?? 0;
+    // Extract all metrics from data
+    final totalRevenue = (_data?['totalRevenue'] as num?)?.toDouble() ?? 0.0;
+    final thisMonthRevenue = (_data?['thisMonthRevenue'] as num?)?.toDouble() ?? 0.0;
+    final todayRevenue = (_data?['todayRevenue'] as num?)?.toDouble() ?? 0.0;
+    final growth = (_data?['growth'] as num?)?.toDouble() ?? 0.0;
+    final pending = (_data?['pendingOrders'] as num?)?.toInt() ?? 0;
+    final confirmed = (_data?['confirmedOrders'] as num?)?.toInt() ?? 0;
+    final shipped = (_data?['shippedOrders'] as num?)?.toInt() ?? 0;
+    final delivered = (_data?['deliveredOrders'] as num?)?.toInt() ?? 0;
+    final totalOrders = (_data?['totalOrders'] as num?)?.toInt() ?? 0;
+    final totalClients = (_data?['totalClients'] as num?)?.toInt() ?? 0;
+    final totalProducts = (_data?['totalProducts'] as num?)?.toInt() ?? 0;
+    final totalStock = (_data?['totalStock'] as num?)?.toInt() ?? 0;
+    final lowStockCount = (_data?['lowStockCount'] as num?)?.toInt() ?? 0;
+    final outOfStockCount = (_data?['outOfStockCount'] as num?)?.toInt() ?? 0;
+    final avgOrderValue = (_data?['avgOrderValue'] as num?)?.toDouble() ?? 0.0;
+    
+    // Calculate fulfillment rate
+    final fulfillmentRate = totalOrders > 0 
+        ? ((delivered / totalOrders) * 100).toStringAsFixed(0) 
+        : "0";
     
     return GridView.count(
       shrinkWrap: true,
@@ -558,26 +658,29 @@ class _SupplierDashboardHomeState extends State<SupplierDashboardHome> {
       mainAxisSpacing: 15,
       childAspectRatio: 0.85,
       children: [
+        // Revenue Card
         _StatCard(
           title: "Revenue",
           valueWidget: AnimatedCurrencyCounter(
-             value: revenue, 
+             value: thisMonthRevenue, 
              style: const TextStyle(
                 color: Color(0xFF4CA6A8),
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
              ),
-             compact: true, // Use K/L/M format if huge
+             compact: true,
           ),
-          subtitle: "Total Sales",
-          badge: "+12%", // In real app, calculate this
+          subtitle: "This Month",
+          badge: "${growth >= 0 ? '+' : ''}${growth.toStringAsFixed(1)}%",
           icon: Icons.attach_money,
           isAlert: false,
         ),
+        
+        // Pending Orders Card
         _StatCard(
           title: "Pending",
           valueWidget: Text(
-            "$pending Units",
+            "$pending Orders",
             style: const TextStyle(
               color: Color(0xFF4CA6A8),
               fontWeight: FontWeight.bold,
@@ -588,6 +691,77 @@ class _SupplierDashboardHomeState extends State<SupplierDashboardHome> {
           badge: pending > 0 ? "Action Needed" : "All Good",
           icon: Icons.schedule,
           isAlert: pending > 0,
+        ),
+        
+        // Inventory Alert Card
+        _StatCard(
+          title: "Inventory",
+          valueWidget: Text(
+            "$totalProducts Items",
+            style: const TextStyle(
+              color: Color(0xFF4CA6A8),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          subtitle: "Total Products",
+          badge: lowStockCount > 0 || outOfStockCount > 0 
+              ? "${lowStockCount + outOfStockCount} Low Stock" 
+              : "Stock OK",
+          icon: Icons.inventory_2,
+          isAlert: lowStockCount > 0 || outOfStockCount > 0,
+        ),
+        
+        // Customers Card
+        _StatCard(
+          title: "Customers",
+          valueWidget: Text(
+            "$totalClients Clients",
+            style: const TextStyle(
+              color: Color(0xFF4CA6A8),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          subtitle: "Active Buyers",
+          badge: totalOrders > 0 ? "$totalOrders Orders" : "No Orders",
+          icon: Icons.people,
+          isAlert: false,
+        ),
+        
+        // Order Fulfillment Card
+        _StatCard(
+          title: "Fulfillment",
+          valueWidget: Text(
+            "$fulfillmentRate%",
+            style: const TextStyle(
+              color: Color(0xFF4CA6A8),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          subtitle: "Delivery Rate",
+          badge: "$delivered Delivered",
+          icon: Icons.local_shipping,
+          isAlert: false,
+        ),
+        
+        // Average Order Value Card
+        _StatCard(
+          title: "Avg Order",
+          valueWidget: AnimatedCurrencyCounter(
+             value: avgOrderValue, 
+             style: const TextStyle(
+                color: Color(0xFF4CA6A8),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+             ),
+             compact: true,
+          ),
+          subtitle: "Per Transaction",
+          badge: totalOrders > 0 ? "$totalOrders Total" : "No Data",
+          icon: Icons.shopping_cart,
+          isAlert: false,
         ),
       ],
     );
