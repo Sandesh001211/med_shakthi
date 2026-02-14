@@ -181,135 +181,160 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // 1. Header Profile Card (Existing UI)
-                  _buildProfileHeader(),
-                  const SizedBox(height: 20),
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      children: [
+                        // 1. Header Profile Card (Existing UI)
+                        _buildProfileHeader(),
+                        const SizedBox(height: 16),
 
-                  // 2. Business Details Section
-                  _buildExpansionSection(
-                    title: "Business Details",
-                    icon: Icons.business,
-                    children: [
-                      _buildInfoRow(
-                        Icons.business_center,
-                        "Type",
-                        _companyType,
-                        isEditable: false,
-                      ),
-                      _buildInfoRow(
-                        Icons.person,
-                        "Owner",
-                        _supplierNameController.text,
-                        controller: _supplierNameController,
-                      ),
-                      _buildInfoRow(
-                        Icons.phone,
-                        "Phone",
-                        _phoneController.text,
-                        controller: _phoneController,
-                      ),
-                      _buildInfoRow(
-                        Icons.email,
-                        "Email",
-                        _email,
-                        isEditable: false,
-                      ), // Email usually not editable directly
-                    ],
+                        // 2. Business Details Section
+                        _buildExpansionSection(
+                          title: "Business Details",
+                          icon: Icons.business,
+                          children: [
+                            _buildInfoRow(
+                              Icons.business_center,
+                              "Type",
+                              _companyType,
+                              isEditable: false,
+                            ),
+                            _buildInfoRow(
+                              Icons.person,
+                              "Owner",
+                              _supplierNameController.text,
+                              controller: _supplierNameController,
+                            ),
+                            _buildInfoRow(
+                              Icons.phone,
+                              "Phone",
+                              _phoneController.text,
+                              controller: _phoneController,
+                            ),
+                            _buildInfoRow(
+                              Icons.email,
+                              "Email",
+                              _email,
+                              isEditable: false,
+                            ), // Email usually not editable directly
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 3. Address Section
+                        _buildExpansionSection(
+                          title: "Address",
+                          icon: Icons.location_on,
+                          children: [
+                            _buildInfoRow(
+                              Icons.location_city,
+                              "City",
+                              _cityController.text,
+                              controller: _cityController,
+                            ),
+                            _buildInfoRow(
+                              Icons.map,
+                              "State",
+                              _stateController.text,
+                              controller: _stateController,
+                            ),
+                            _buildInfoRow(
+                              Icons.pin_drop,
+                              "Pincode",
+                              _pincodeController.text,
+                              controller: _pincodeController,
+                            ),
+                            _buildInfoRow(
+                              Icons.public,
+                              "Country",
+                              _countryController.text,
+                              controller: _countryController,
+                            ),
+                            _buildInfoRow(
+                              Icons.home,
+                              "Full Address",
+                              _addressController.text,
+                              controller: _addressController,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 4. Legal & Tax Section
+                        _buildExpansionSection(
+                          title: "Legal & Licenses",
+                          icon: Icons.verified_user,
+                          children: [
+                            _buildInfoRow(
+                              Icons.assignment,
+                              "Drug License",
+                              _drugLicenseController.text,
+                              controller: _drugLicenseController,
+                            ),
+                            _buildInfoRow(
+                              Icons.calendar_today,
+                              "License Expiry",
+                              _drugLicenseExpiry,
+                              isEditable: false,
+                            ),
+                            _buildInfoRow(
+                              Icons.receipt_long,
+                              "GST Number",
+                              _gstController.text,
+                              controller: _gstController,
+                            ),
+                            _buildInfoRow(
+                              Icons.badge,
+                              "PAN Number",
+                              _panController.text,
+                              controller: _panController,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 5. Account Actions
+                        _buildSectionTitle("Settings"),
+                        _buildMenuOption(
+                          Icons.settings,
+                          "Account Settings",
+                          () {},
+                        ),
+                        _buildMenuOption(Icons.privacy_tip, "Privacy Policy", () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyScreen(),
+                            ),
+                          );
+                        }),
+                        _buildMenuOption(
+                          Icons.notifications,
+                          "Notifications",
+                          () {},
+                        ),
+                        _buildMenuOption(Icons.help, "Help & Support", () {}),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // 3. Address Section
-                  _buildExpansionSection(
-                    title: "Address",
-                    icon: Icons.location_on,
-                    children: [
-                      _buildInfoRow(
-                        Icons.location_city,
-                        "City",
-                        _cityController.text,
-                        controller: _cityController,
-                      ),
-                      _buildInfoRow(
-                        Icons.map,
-                        "State",
-                        _stateController.text,
-                        controller: _stateController,
-                      ),
-                      _buildInfoRow(
-                        Icons.pin_drop,
-                        "Pincode",
-                        _pincodeController.text,
-                        controller: _pincodeController,
-                      ),
-                      _buildInfoRow(
-                        Icons.public,
-                        "Country",
-                        _countryController.text,
-                        controller: _countryController,
-                      ),
-                      _buildInfoRow(
-                        Icons.home,
-                        "Full Address",
-                        _addressController.text,
-                        controller: _addressController,
-                      ),
-                    ],
+                ),
+                // Logout button fixed at bottom
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: _buildMenuOption(
+                    Icons.logout,
+                    "Logout",
+                    _showLogoutConfirmationDialog,
                   ),
-                  const SizedBox(height: 16),
-
-                  // 4. Legal & Tax Section
-                  _buildExpansionSection(
-                    title: "Legal & Licenses",
-                    icon: Icons.verified_user,
-                    children: [
-                      _buildInfoRow(
-                        Icons.assignment,
-                        "Drug License",
-                        _drugLicenseController.text,
-                        controller: _drugLicenseController,
-                      ),
-                      _buildInfoRow(
-                        Icons.calendar_today,
-                        "License Expiry",
-                        _drugLicenseExpiry,
-                        isEditable: false,
-                      ),
-                      _buildInfoRow(
-                        Icons.receipt_long,
-                        "GST Number",
-                        _gstController.text,
-                        controller: _gstController,
-                      ),
-                      _buildInfoRow(
-                        Icons.badge,
-                        "PAN Number",
-                        _panController.text,
-                        controller: _panController,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 5. Account Actions
-                  _buildSectionTitle("Settings"),
-                  _buildMenuOption(Icons.settings, "Account Settings", () {}),
-                  _buildMenuOption(Icons.privacy_tip, "Privacy Policy", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PrivacyPolicyScreen(),
-                      ),
-                    );
-                  }),
-                  _buildMenuOption(Icons.notifications, "Notifications", () {}),
-                  _buildMenuOption(Icons.help, "Help & Support", () {}),
-                  _buildMenuOption(Icons.logout, "Logout", _handleLogout),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
@@ -584,6 +609,120 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
         ),
         onTap: onTap,
       ),
+    );
+  }
+
+  void _showLogoutConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: Colors.redAccent,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  "Logout",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.titleLarge?.color,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Are you sure you want to exit?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          "Cancel",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _handleLogout();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Yes, Exit",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

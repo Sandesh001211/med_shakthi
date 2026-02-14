@@ -10,6 +10,8 @@ import '../../../cart/data/cart_data.dart';
 import '../../../cart/data/cart_item.dart';
 // import '../../../models/cart_item.dart';
 import 'package:uuid/uuid.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class PaymentMethodScreen extends StatefulWidget {
   const PaymentMethodScreen({super.key});
@@ -21,15 +23,26 @@ class PaymentMethodScreen extends StatefulWidget {
 class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
   final supabase = Supabase.instance.client;
 
-  String selectedMethod = "MasterCard";
+  String selectedMethod = "Razorpay";
   bool _loading = false;
   List<Map<String, dynamic>> _paymentMethods = [];
   bool _fetchingMethods = true;
+  late Razorpay _razorpay;
 
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _fetchPaymentMethods();
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 
   Future<void> _fetchPaymentMethods() async {
@@ -38,6 +51,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
     if (mounted) {
       setState(() {
         _paymentMethods = [
+          {"title": "Razorpay", "icon": Icons.account_balance_wallet_outlined},
           {"title": "MasterCard", "icon": Icons.credit_card},
           {"title": "PayPal", "icon": Icons.account_balance_wallet},
           {"title": "Visa", "icon": Icons.credit_score},
@@ -88,7 +102,51 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
     );
   }
 
-  Future<void> _placeOrder() async {
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    showCustomSnackBar(context, "Payment Successful: ${response.paymentId}");
+    _placeOrder(paymentStatus: "paid", paymentId: response.paymentId);
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    showCustomSnackBar(
+      context,
+      "Payment Failed: ${response.message}",
+      isError: true,
+    );
+    setState(() => _loading = false);
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    showCustomSnackBar(context, "External Wallet: ${response.walletName}");
+  }
+
+  void _openRazorpay(double amount) {
+    final user = supabase.auth.currentUser;
+    final options = {
+      'key': dotenv.env['RAZORPAY_KEY_ID'] ?? 'rzp_test_YOUR_KEY_HERE',
+      'amount': (amount * 100).toInt(), // amount in the smallest currency unit
+      'name': 'Med Shakthi',
+      'description': 'Healthcare Order Payment',
+      'prefill': {
+        'contact': '', // optionally add user phone
+        'email': user?.email ?? '',
+      },
+      'external': {
+        'wallets': ['paytm'],
+      },
+    };
+
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+  }
+
+  Future<void> _placeOrder({
+    String paymentStatus = "pending",
+    String? paymentId,
+  }) async {
     final cart = context.read<CartData>();
     final user = supabase.auth.currentUser;
 
@@ -151,7 +209,8 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
           "total_amount": total, // same total for whole order group
           //  status check constraint values
           "status": "pending",
-          "payment_status": "pending",
+          "payment_status": paymentStatus,
+          "razorpay_payment_id": paymentId,
 
           // optional
           "shipping": shipping,
@@ -307,16 +366,32 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _placeOrder,
+                  onPressed:
+                      _loading
+                          ? null
+                          : () {
+                            if (selectedMethod == "Razorpay") {
+                              setState(() => _loading = true);
+                              _openRazorpay(total);
+                            } else {
+                              _placeOrder();
+                            }
+                          },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5A9CA0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  child: _loading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Next", style: TextStyle(fontSize: 18)),
+                  child:
+                      _loading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                            selectedMethod == "Razorpay"
+                                ? "Pay Now"
+                                : "Place Order",
+                            style: const TextStyle(fontSize: 18),
+                          ),
                 ),
               ),
             ],
