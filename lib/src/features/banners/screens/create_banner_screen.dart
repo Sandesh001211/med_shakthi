@@ -9,7 +9,7 @@ import 'package:med_shakthi/src/features/banners/models/banner_model_supabase.da
 class CreateBannerScreen extends StatefulWidget {
   final SupabaseBannerModel? existingBanner;
 
-  const CreateBannerScreen({Key? key, this.existingBanner}) : super(key: key);
+  const CreateBannerScreen({super.key, this.existingBanner});
 
   @override
   State<CreateBannerScreen> createState() => _CreateBannerScreenState();

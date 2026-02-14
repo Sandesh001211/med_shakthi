@@ -2,6 +2,7 @@ class AddressModel {
   final String id;
   final String userId;
   final String title;
+  final String? remarks;
   final String fullAddress;
   final double lat;
   final double lng;
@@ -14,6 +15,7 @@ class AddressModel {
     required this.fullAddress,
     required this.lat,
     required this.lng,
+    this.remarks,
     this.isSelected = false,
   });
 
@@ -24,6 +26,7 @@ class AddressModel {
     String? fullAddress,
     double? lat,
     double? lng,
+    String? remarks,
     bool? isSelected,
   }) {
     return AddressModel(
@@ -33,6 +36,7 @@ class AddressModel {
       fullAddress: fullAddress ?? this.fullAddress,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
+      remarks: remarks ?? this.remarks,
       isSelected: isSelected ?? this.isSelected,
     );
   }
@@ -45,6 +49,7 @@ class AddressModel {
       'full_address': fullAddress,
       'lat': lat,
       'lng': lng,
+      'remarks': remarks,
     };
   }
 
@@ -56,12 +61,13 @@ class AddressModel {
       fullAddress: map['full_address'] ?? map['address'] ?? '',
       lat: (map['lat'] as num?)?.toDouble() ?? 0.0,
       lng: (map['lng'] as num?)?.toDouble() ?? 0.0,
+      remarks: map['remarks'],
       isSelected: false,
     );
   }
 
   @override
   String toString() {
-    return 'AddressModel(id: $id, title: $title, fullAddress: $fullAddress)';
+    return 'AddressModel(id: $id, title: $title, fullAddress: $fullAddress, remarks: $remarks)';
   }
 }

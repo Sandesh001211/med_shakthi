@@ -47,9 +47,9 @@ class AddressStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addAddress(AddressModel address) async {
+  Future<bool> addAddress(AddressModel address) async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
     loading = true;
     notifyListeners();
@@ -58,17 +58,20 @@ class AddressStore extends ChangeNotifier {
       await supabase.from('addresses').insert(address.toMap());
 
       await fetchAddresses(); //  refresh from DB
+      loading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       debugPrint("addAddress error: $e");
+      loading = false;
+      notifyListeners();
+      return false;
     }
-
-    loading = false;
-    notifyListeners();
   }
 
-  Future<void> updateAddress(AddressModel address) async {
+  Future<bool> updateAddress(AddressModel address) async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
     loading = true;
     notifyListeners();
@@ -81,12 +84,15 @@ class AddressStore extends ChangeNotifier {
           .eq('user_id', user.id);
 
       await fetchAddresses(); // Refresh list
+      loading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       debugPrint("updateAddress error: $e");
+      loading = false;
+      notifyListeners();
+      return false;
     }
-
-    loading = false;
-    notifyListeners();
   }
 
   Future<void> deleteAddress(String id) async {
@@ -106,7 +112,6 @@ class AddressStore extends ChangeNotifier {
           .from('addresses')
           .delete()
           .eq('id', id)
-          .eq('user_id', user.id)
           .select();
 
       debugPrint("Delete response: $response");

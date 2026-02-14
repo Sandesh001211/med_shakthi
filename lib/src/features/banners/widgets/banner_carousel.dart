@@ -7,8 +7,7 @@ class BannerCarousel extends StatefulWidget {
   final Function(String category)? onBannerTap;
   final Widget? fallbackWidget;
 
-  const BannerCarousel({Key? key, this.onBannerTap, this.fallbackWidget})
-    : super(key: key);
+  const BannerCarousel({super.key, this.onBannerTap, this.fallbackWidget});
 
   @override
   State<BannerCarousel> createState() => _BannerCarouselState();

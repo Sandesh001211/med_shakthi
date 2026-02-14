@@ -6,12 +6,11 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
 
-import 'package:med_shakthi/src/features/checkout/presentation/screens/address_select_screen.dart';
+import 'package:med_shakthi/src/features/checkout/presentation/screens/address_management_screen.dart';
+import 'package:med_shakthi/src/features/checkout/presentation/screens/payment_method_screen.dart';
 import 'package:med_shakthi/src/features/cart/data/cart_data.dart';
 import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
 import '../../../orders/orders_page.dart';
-
-import '../../../checkout/presentation/screens/payment_methods_for_pro_page.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -332,7 +331,7 @@ class _AccountPageState extends State<AccountPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AddressSelectScreen(),
+                                builder: (_) => const AddressManagementScreen(),
                               ),
                             );
                           },
@@ -362,7 +361,9 @@ class _AccountPageState extends State<AccountPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const PaymentMethodsPage(),
+                                builder: (_) => const PaymentMethodScreen(
+                                  isCheckout: false,
+                                ),
                               ),
                             );
                           },

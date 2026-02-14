@@ -126,8 +126,7 @@ class _SupplierOrderListState extends State<SupplierOrderList> {
           .from('order_details')
           .update({
             'status': newStatus,
-            if (reason != null)
-              'cancellation_reason': reason, // Assuming column exists
+            'cancellation_reason': ?reason, // Assuming column exists
           })
           .eq('id', orderId);
 

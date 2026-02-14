@@ -61,7 +61,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     // The previous implementation used 'deliveryLocation' from OrderItem, assuming it was flat.
     // We will use placeholders if missing in parent.
     final deliveryLocation =
-        widget.orderData['delivery_address'] ?? "Address info not available";
+        widget.orderData['shipping_address'] ?? "Address info not available";
     final paymentMode = widget.orderData['payment_method'] ?? "Online";
 
     final Color themeColor = Theme.of(context).primaryColor;

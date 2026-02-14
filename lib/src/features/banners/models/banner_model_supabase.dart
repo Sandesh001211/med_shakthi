@@ -2,6 +2,7 @@
 /// 
 /// This model works with Supabase PostgreSQL database
 /// instead of Firebase Firestore
+library;
 
 class SupabaseBannerModel {
   final String id;

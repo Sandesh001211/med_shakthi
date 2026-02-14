@@ -37,9 +37,7 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
       final aiResponse = await GeminiService.sendMessage(text);
 
       setState(() {
-        _messages.add(
-          _ChatMessage(text: aiResponse, isUser: false),
-        );
+        _messages.add(_ChatMessage(text: aiResponse, isUser: false));
       });
     } catch (e) {
       setState(() {
@@ -133,16 +131,16 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
                     decoration: InputDecoration(
                       hintText: "Ask something...",
                       filled: true,
-                      fillColor:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey[900]
-                              : const Color(0xFFF1F3F6),
+                      fillColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[900]
+                          : const Color(0xFFF1F3F6),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -178,8 +176,9 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alignment =
-        message.isUser ? Alignment.centerRight : Alignment.centerLeft;
+    final alignment = message.isUser
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
 
     final color = message.isUser
         ? const Color(0xFF5A9CA0)
@@ -202,7 +201,7 @@ class _ChatBubble extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),

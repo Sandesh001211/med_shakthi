@@ -8,7 +8,7 @@ import 'package:med_shakthi/src/features/banners/screens/manage_banners_screen.d
 /// supplier/admin dashboard.
 
 class SupplierDashboardExample extends StatelessWidget {
-  const SupplierDashboardExample({Key? key}) : super(key: key);
+  const SupplierDashboardExample({super.key});
 
   @override
   Widget build(BuildContext context) {

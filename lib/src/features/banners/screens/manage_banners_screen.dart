@@ -5,7 +5,7 @@ import '../services/banner_service_supabase.dart';
 import 'create_banner_screen.dart';
 
 class ManageBannersScreen extends StatefulWidget {
-  const ManageBannersScreen({Key? key}) : super(key: key);
+  const ManageBannersScreen({super.key});
 
   @override
   State<ManageBannersScreen> createState() => _ManageBannersScreenState();

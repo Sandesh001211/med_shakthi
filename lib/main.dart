@@ -143,6 +143,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 // Providers
 import 'package:med_shakthi/src/features/cart/data/cart_data.dart';
 import 'package:med_shakthi/src/features/checkout/presentation/screens/address_store.dart';
+import 'package:med_shakthi/src/features/checkout/presentation/screens/payment_method_store.dart';
 import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
 import 'package:med_shakthi/src/core/theme/theme_provider.dart';
 import 'package:med_shakthi/src/core/theme/app_theme.dart';
@@ -172,6 +173,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => CartData()),
         ChangeNotifierProvider(create: (_) => AddressStore()),
+        ChangeNotifierProvider(create: (_) => PaymentMethodStore()),
         ChangeNotifierProvider(create: (_) => WishlistService()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],

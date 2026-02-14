@@ -33,7 +33,7 @@ class OrderDetailModel {
       unitSize: map['unit_size'] ?? '',
       imageUrl: map['image_url'] ?? '',
       price: double.tryParse(map['price']?.toString() ?? '0') ?? 0.0,
-      qty: int.tryParse(map['qty']?.toString() ?? '1') ?? 1,
+      qty: int.tryParse(map['quantity']?.toString() ?? '1') ?? 1,
       createdAt:
           DateTime.tryParse(map['created_at']?.toString() ?? '') ??
           DateTime.now(),

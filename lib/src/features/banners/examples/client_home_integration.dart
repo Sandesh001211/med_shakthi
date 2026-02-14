@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:med_shakthi/src/features/banners/widgets/banner_carousel.dart';
 
 /// Example integration of the Banner Carousel in the Client Home Screen
-/// 
+///
 /// This demonstrates how to integrate the banner system into your existing
 /// home screen or dashboard.
 
 class ClientHomeScreenExample extends StatelessWidget {
-  const ClientHomeScreenExample({Key? key}) : super(key: key);
+  const ClientHomeScreenExample({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -61,10 +61,7 @@ class ClientHomeScreenExample extends StatelessWidget {
               color: const Color(0xFF1A1F3A),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(
-              Icons.person_outline,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.person_outline, color: Colors.white),
           ),
           const SizedBox(width: 12),
 
@@ -105,10 +102,7 @@ class ClientHomeScreenExample extends StatelessWidget {
               color: const Color(0xFF1A1F3A),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(
-              Icons.nightlight_round,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.nightlight_round, color: Colors.white),
           ),
         ],
       ),
@@ -135,10 +129,7 @@ class ClientHomeScreenExample extends StatelessWidget {
                 onPressed: () {},
                 child: const Text(
                   'See All',
-                  style: TextStyle(
-                    color: Color(0xFF00D9C0),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Color(0xFF00D9C0), fontSize: 14),
                 ),
               ),
             ],
@@ -151,10 +142,26 @@ class ClientHomeScreenExample extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
-              _buildCategoryCard('Medicines', Icons.medication, const Color(0xFF3B82F6)),
-              _buildCategoryCard('Devices', Icons.medical_services, const Color(0xFFA855F7)),
-              _buildCategoryCard('Health', Icons.favorite, const Color(0xFFEF4444)),
-              _buildCategoryCard('Vitamins', Icons.eco, const Color(0xFFEAB308)),
+              _buildCategoryCard(
+                'Medicines',
+                Icons.medication,
+                const Color(0xFF3B82F6),
+              ),
+              _buildCategoryCard(
+                'Devices',
+                Icons.medical_services,
+                const Color(0xFFA855F7),
+              ),
+              _buildCategoryCard(
+                'Health',
+                Icons.favorite,
+                const Color(0xFFEF4444),
+              ),
+              _buildCategoryCard(
+                'Vitamins',
+                Icons.eco,
+                const Color(0xFFEAB308),
+              ),
             ],
           ),
         ),
@@ -175,19 +182,12 @@ class ClientHomeScreenExample extends StatelessWidget {
               color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 28,
-            ),
+            child: Icon(icon, color: color, size: 28),
           ),
           const SizedBox(height: 8),
           Text(
             name,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -215,10 +215,7 @@ class ClientHomeScreenExample extends StatelessWidget {
                 onPressed: () {},
                 child: const Text(
                   'See All',
-                  style: TextStyle(
-                    color: Color(0xFF00D9C0),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Color(0xFF00D9C0), fontSize: 14),
                 ),
               ),
             ],
