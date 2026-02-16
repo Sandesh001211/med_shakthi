@@ -61,12 +61,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
       return;
     }
 
-    // Allow proceeding without selecting a saved method? Maybe default to COD?
-    // Requirement says "Replacing static ... with dynamic".
-    // For now, require a selection if the list is not empty, OR just assume "Cash on Delivery" or similar if nothing selected.
-    // Let's enforce selection if store has methods, or provide a default "Cash / Pay on Arrival" option.
-
-    // For simplicity, let's assume they MUST select one of their saved methods.
+    // Require payment method selection if methods exist
     if (paymentStore.selectedMethodId == null &&
         paymentStore.paymentMethods.isNotEmpty) {
       showCustomSnackBar(
@@ -80,76 +75,81 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
     setState(() => _placingOrder = true);
 
     try {
-      final orderGroupId = const Uuid().v4();
-      final subTotal = cart.subTotal;
-      const shipping = 10;
-      final total = subTotal + shipping;
+      // 1. Fetch supplier_id for all products in cart
+      final productIds = cart.items.map((item) => item.id).toList();
+      final productsData = await supabase
+          .from('products')
+          .select('id, supplier_id')
+          .inFilter('id', productIds);
 
-      final orderItemsJson = cart.items.map((CartItem item) {
-        return {
-          "product_id": item.id,
-          "item_name": item.title ?? item.name,
-          "brand": item.brand ?? "",
-          "unit_size": item.size ?? "",
-          "image_url": item.imagePath ?? item.imageUrl ?? "",
-          "price": item.price,
-          "quantity": item.quantity,
-        };
-      }).toList();
+      // Create a map: product_id -> supplier_id
+      final Map<String, String?> productSuppliers = {
+        for (var p in productsData)
+          p['id'] as String: p['supplier_id'] as String?,
+      };
+
+      // 2. Group cart items by supplier
+      final Map<String?, List<CartItem>> itemsBySupplier = {};
+      for (var item in cart.items) {
+        final supplierId = productSuppliers[item.id];
+        itemsBySupplier.putIfAbsent(supplierId, () => []).add(item);
+      }
+
+      // 3. Create shared order group ID
+      final orderGroupId = const Uuid().v4();
+      const shipping = 10;
 
       // Format delivery address
       final String deliveryAddressText = widget.deliveryAddress != null
           ? widget.deliveryAddress!.fullAddress
           : 'No address provided';
 
-      final List<Map<String, dynamic>> rows = cart.items.map((CartItem item) {
-        return {
-          "user_id": user.id,
-          "order_group_id": orderGroupId,
-          "product_id": item.id,
-          "item_name": item.title ?? item.name,
-          "brand": item.brand,
-          "unit_size": item.size,
-          "image_url": item.imagePath ?? item.imageUrl,
-          "price": item.price,
-          "quantity": item.quantity,
-          "total_amount": total,
-          "status": "pending",
-          "payment_status": "pending",
-          // Store selected payment method ID/Info
-          "payment_method_id": paymentStore.selectedMethodId,
-          "shipping": shipping,
-          "shipping_address": deliveryAddressText,
-          "order_items": orderItemsJson,
-        };
-      }).toList();
+      // 4. Create ONE order per supplier
+      for (var entry in itemsBySupplier.entries) {
+        final supplierId = entry.key;
+        final items = entry.value;
 
-      // Insert into orders table and get back the inserted rows with IDs
-      final insertedOrders = await supabase
-          .from("orders")
-          .insert(rows)
-          .select();
+        // Calculate total for this supplier's items
+        final supplierSubtotal = items.fold(
+          0.0,
+          (sum, item) => sum + (item.price * item.quantity),
+        );
+        final supplierTotal = supplierSubtotal + shipping;
 
-      // Now insert into order_details table using the order IDs from inserted orders
-      final List<Map<String, dynamic>> orderDetailRows = [];
-      for (int i = 0; i < insertedOrders.length; i++) {
-        final orderId = insertedOrders[i]['id'];
-        final item = cart.items[i];
+        // Insert ONE order row for this supplier
+        final order = await supabase
+            .from('orders')
+            .insert({
+              "user_id": user.id,
+              "order_group_id": orderGroupId,
+              "supplier_id": supplierId,
+              "total_amount": supplierTotal,
+              "shipping": shipping,
+              "shipping_address": deliveryAddressText,
+              "status": "pending",
+              "payment_status": "pending",
+              "payment_method_id": paymentStore.selectedMethodId,
+            })
+            .select()
+            .single();
 
-        orderDetailRows.add({
-          "order_id": orderId,
-          "product_id": item.id,
-          "item_name": item.title ?? item.name,
-          "brand": item.brand ?? "",
-          "unit_size": item.size ?? "",
-          "image_url": item.imagePath ?? item.imageUrl ?? "",
-          "price": item.price,
-          "quantity": item.quantity,
-        });
+        // 5. Insert order_details for each item in this supplier's order
+        final orderDetailRows = items.map((item) {
+          return {
+            "order_id": order['id'],
+            "product_id": item.id,
+            "supplier_id": supplierId, // NEW: Track supplier per item
+            "item_name": item.title ?? item.name,
+            "brand": item.brand ?? "",
+            "unit_size": item.size ?? "",
+            "image_url": item.imagePath ?? item.imageUrl ?? "",
+            "price": item.price,
+            "quantity": item.quantity,
+          };
+        }).toList();
+
+        await supabase.from('order_details').insert(orderDetailRows);
       }
-
-      // Insert into order_details table
-      await supabase.from("order_details").insert(orderDetailRows);
 
       if (!mounted) return;
       showCustomSnackBar(context, "Order Placed Successfully");
@@ -159,8 +159,20 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         context,
         MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
       );
+    } on PostgrestException catch (e) {
+      debugPrint("Supabase error: ${e.message}");
+      if (mounted) {
+        showCustomSnackBar(
+          context,
+          "Order failed: ${e.message}",
+          isError: true,
+        );
+      }
     } catch (e) {
-      showCustomSnackBar(context, "Order failed: $e", isError: true);
+      debugPrint("Order failed: $e");
+      if (mounted) {
+        showCustomSnackBar(context, "Order failed: $e", isError: true);
+      }
     } finally {
       if (mounted) setState(() => _placingOrder = false);
     }

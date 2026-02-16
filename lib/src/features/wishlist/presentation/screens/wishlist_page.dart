@@ -150,6 +150,9 @@ class _WishlistCard extends StatelessWidget {
                 image: item.image,
                 category: "General", // Placeholder
                 rating: 0.0, // Placeholder
+                supplierName: item.supplierName,
+                supplierCode: item.supplierCode,
+                supplierId: item.supplierId,
               );
               Navigator.push(
                 context,

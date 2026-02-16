@@ -21,8 +21,8 @@ class _OrdersPageState extends State<OrdersPage> {
   final List<String> statusList = [
     "All",
     "Pending",
-    "Confirmed",
-    "Shipped",
+    "Accepted",
+    "Dispatched",
     "Delivered",
     "Cancelled",
   ];
@@ -271,16 +271,20 @@ class _OrdersPageState extends State<OrdersPage> {
       case "pending":
         color = Colors.orange;
         break;
+      case "accepted":
       case "confirmed":
         color = Colors.blue;
         break;
+      case "dispatched":
       case "shipped":
         color = Colors.purple;
         break;
       case "delivered":
+      case "completed":
         color = Colors.green;
         break;
       case "cancelled":
+      case "rejected":
         color = Colors.red;
         break;
       default:
@@ -294,8 +298,12 @@ class _OrdersPageState extends State<OrdersPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        status.toUpperCase(), // Display in caps for better visibility
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
       ),
     );
   }

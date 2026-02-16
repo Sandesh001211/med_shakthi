@@ -28,10 +28,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           .from('orders')
           .select('''
             *,
-            order_items (
-              *,
-              products (*)
-            )
+            order_details (*)
           ''')
           .eq('id', widget.orderId)
           .single();
@@ -41,6 +38,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           order = response;
           isLoading = false;
         });
+      }
+    } on PostgrestException catch (e) {
+      debugPrint("Supabase error: ${e.message}");
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error loading order: ${e.message}")),
+        );
       }
     } catch (e) {
       debugPrint("Error fetching order details: $e");
@@ -99,7 +104,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final createdAt = DateTime.parse(order!['created_at']);
     final formattedDate = DateFormat('dd MMM yyyy').format(createdAt);
     final status = order!['status'] ?? 'Unknown';
-    final items = order!['order_items'] as List<dynamic>;
+    final items = order!['order_details'] as List<dynamic>;
 
     // Assumption: Buyer address is stored in shipping_address column in orders table
     // If not, we might need to fetch it from 'profiles' table if we have buyer_id
@@ -113,10 +118,50 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text("Order Details"), centerTitle: true),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Shipping Address Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 20,
+                        color: Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Delivery Address',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    address,
+                    style: const TextStyle(fontSize: 14, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // 📦 Order Summary
             _sectionTitle("Order Summary"),
             _infoRow(
@@ -135,21 +180,17 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             _sectionTitle("Pharmacy Details"),
             _infoRow("Pharmacy Name", buyerName),
             _infoRow("Contact", phone),
-            _infoRow("Delivery Address", address),
             const SizedBox(height: 20),
 
             // 💊 Items Ordered
             _sectionTitle("Items Ordered"),
             ...items.map((item) {
-              final product = item['products'];
+              // Use data directly from order_details (no products join needed)
               return _medicineItem(
-                name: product?['name'] ?? 'Unknown Product',
-                batch:
-                    product?['sku'] ??
-                    'N/A', // Using SKU as batch placeholder if needed
-                expiry: product?['expiry_date'] ?? 'N/A',
-                qty:
-                    "${item['quantity']} units", // Unit size might be in product
+                name: item['item_name'] ?? 'Unknown Product',
+                batch: item['brand'] ?? 'N/A',
+                expiry: 'N/A', // Not stored in order_details
+                qty: "${item['quantity']} ${item['unit_size'] ?? 'units'}",
                 price: "₹${item['price']}",
               );
             }),

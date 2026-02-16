@@ -4,20 +4,35 @@ class WishlistItem {
   final double price;
   final String image;
 
+  final String? supplierName;
+  final String? supplierCode;
+  final String? supplierId;
+
   WishlistItem({
     required this.id,
     required this.name,
     required this.price,
     required this.image,
+    this.supplierName,
+    this.supplierCode,
+    this.supplierId,
   });
 
   // Convert from Map (Database)
   factory WishlistItem.fromMap(Map<String, dynamic> map) {
+    // Handle join with products -> suppliers
+    final product = map['products'] as Map<String, dynamic>?;
+    final supplier = product?['suppliers'] as Map<String, dynamic>?;
+
     return WishlistItem(
-      id: map['product_id'] ?? '', // Assuming we store product_id
+      id: map['product_id'] ?? '',
       name: map['name'] ?? '',
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
-      image: map['image'] ?? '',
+      image: product?['image_url'] ?? map['image'] ?? '',
+      // Try to get from join, or directly if flattened (unlikely)
+      supplierName: supplier?['name'],
+      supplierCode: supplier?['supplier_code'],
+      supplierId: supplier?['id'],
     );
   }
 
