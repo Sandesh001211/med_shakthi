@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,16 +14,50 @@ class CartData extends ChangeNotifier {
 
   double get subTotal => _items.fold(0, (t, i) => t + i.price * i.quantity);
 
+  StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _cartStreamSubscription;
+
   CartData() {
     _init();
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
+      final AuthChangeEvent event = data.event;
+      if (event == AuthChangeEvent.signedIn) {
+        _init(); // Re-init on login to load user cart
+      } else if (event == AuthChangeEvent.signedOut) {
+        _clearStateOnLogout(); // Clear on logout
+      }
+    });
   }
 
   Future<void> _init() async {
+    _isLoading = true;
+    // notifyListeners(); // Avoid notifying during build if called from constructor
     await _loadLocalCart();
     _isLoading = false;
     notifyListeners();
-    // Fire and forget sync (don't block UI)
     _syncWithRemote();
+  }
+
+  void _clearStateOnLogout() {
+    _items = [];
+    _cartStreamSubscription?.cancel();
+    _cartStreamSubscription = null;
+    notifyListeners();
+    // Optionally load guest cart here if you support it
+    _loadLocalCart();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _cartStreamSubscription?.cancel();
+    super.dispose();
   }
 
   // --- LOCAL STORAGE (SharedPreferences) ---
@@ -69,7 +104,9 @@ class CartData extends ChangeNotifier {
       final supabase = Supabase.instance.client;
 
       // 1. Listen to Realtime Changes
-      supabase
+      // 1. Listen to Realtime Changes
+      _cartStreamSubscription?.cancel();
+      _cartStreamSubscription = supabase
           .from('cart_items')
           .stream(primaryKey: ['id'])
           .eq('user_id', user.id)
@@ -77,7 +114,7 @@ class CartData extends ChangeNotifier {
             _items = data.map((e) {
               return CartItem(
                 id: e['product_id'] ?? e['id'], // Handle schema variations
-                name: e['name'],
+                name: e['name'] ?? 'Unknown',
                 price: (e['price'] as num).toDouble(),
                 imagePath: e['image'],
                 quantity: e['quantity'] ?? 1,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,63 +6,199 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models/wishlist_item_model.dart';
 
 class WishlistService extends ChangeNotifier {
-  WishlistService({String? userId});
-
+  StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _wishlistStreamSubscription;
   final SupabaseClient _supabase = Supabase.instance.client;
-  List<WishlistItem> _wishlist = [];
 
+  List<WishlistItem> _wishlist = [];
   List<WishlistItem> get wishlist => List.unmodifiable(_wishlist);
+
+  WishlistService({String? userId}) {
+    _init(); // Load local immediately
+    _listenToAuthChanges();
+  }
+
+  void _init() async {
+    await _loadFromLocal();
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      _syncWithRemote(user);
+    }
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((data) async {
+      final AuthChangeEvent event = data.event;
+      if (event == AuthChangeEvent.signedIn) {
+        final user = data.session?.user;
+        if (user != null) {
+          await _mergeGuestWishlist(user);
+          _syncWithRemote(user);
+        }
+      } else if (event == AuthChangeEvent.signedOut) {
+        _clearStateOnLogout();
+      }
+    });
+  }
+
+  /// 🔄 Merge Guest Items to User Account
+  Future<void> _mergeGuestWishlist(User user) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? guestList = prefs.getStringList('local_wishlist');
+
+    if (guestList != null && guestList.isNotEmpty) {
+      final List<WishlistItem> guestItems = guestList.map((jsonStr) {
+        return WishlistItem.fromMap(jsonDecode(jsonStr));
+      }).toList();
+
+      if (kDebugMode) {
+        print("Merging ${guestItems.length} guest items to user ${user.id}");
+      }
+
+      // Upload each to Supabase
+      for (final item in guestItems) {
+        try {
+          await _supabase
+              .from('wishlist')
+              .upsert(item.toMap(user.id), onConflict: 'user_id, product_id');
+        } catch (e) {
+          if (kDebugMode) print("Values merge failed for ${item.id}: $e");
+        }
+      }
+
+      // Clear guest list after successful merge attempt
+      await prefs.remove('local_wishlist');
+    }
+  }
+
+  void _clearStateOnLogout() {
+    _wishlistStreamSubscription?.cancel();
+    _wishlistStreamSubscription = null;
+    _wishlist = [];
+    notifyListeners();
+    _loadFromLocal(); // Load guest wishlist if any
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _wishlistStreamSubscription?.cancel();
+    super.dispose();
+  }
 
   bool isInWishlist(String productId) {
     return _wishlist.any((item) => item.id == productId);
   }
 
-  /// Init: Load from Local Storage first, then Sync with Supabase
-  Future<void> fetchWishlist() async {
-    await _loadFromLocal(); // ⚡ Instant Load
+  /// 🔄 Real-time Sync with Supabase
+  void _syncWithRemote(User? user) {
+    if (user == null) return;
 
-    final user = _supabase.auth.currentUser;
-    if (user != null) {
-      try {
-        final response = await _supabase
-            .from('wishlist')
-            .select()
-            .eq('user_id', user.id);
+    // Cancel existing subscription to avoid duplicates
+    _wishlistStreamSubscription?.cancel();
 
-        final List<dynamic> data = response as List<dynamic>;
-        _wishlist = data.map((e) => WishlistItem.fromMap(e)).toList();
-        notifyListeners();
-        _saveToLocal(); // 💾 Sync Cloud -> Local
-      } catch (e) {
-        if (kDebugMode) print('Supabase fetch failed (using local): $e');
-        // Fallback is already loaded from _loadFromLocal()
-      }
-    }
+    _wishlistStreamSubscription = _supabase
+        .from('wishlist')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', user.id) // Strict user filter like Cart
+        .listen(
+          (List<Map<String, dynamic>> data) async {
+            if (kDebugMode) {
+              print("Wishlist Stream Event: ${data.length} items");
+            }
+
+            // 1. Immediate Update (Snapshot)
+            // Use the data directly from the wishlist table so user sees *something*
+            // even if product fetch fails.
+            _wishlist = data.map((e) => WishlistItem.fromMap(e)).toList();
+            notifyListeners();
+            _saveToLocal();
+
+            if (data.isEmpty) return;
+
+            final productIds = data.map((e) => e['product_id']).toList();
+
+            try {
+              // 2. Background Refresh (Detailed Data)
+              // Fetch latest product details (price, image, supplier)
+              final productsResponse = await _supabase
+                  .from('products')
+                  .select('*, suppliers(name, supplier_code, id)')
+                  .filter('id', 'in', productIds);
+
+              final List<dynamic> productsData =
+                  productsResponse as List<dynamic>;
+              final productMap = {for (var p in productsData) p['id']: p};
+
+              // Re-map with enhanced product data
+              _wishlist = data.map((wItem) {
+                final pId = wItem['product_id'];
+                final pData = productMap[pId];
+
+                final mapForModel = Map<String, dynamic>.from(wItem);
+                if (pData != null) {
+                  mapForModel['products'] = pData;
+                }
+                return WishlistItem.fromMap(mapForModel);
+              }).toList();
+
+              if (kDebugMode) {
+                print("Wishlist enhanced with product data");
+              }
+
+              notifyListeners();
+              _saveToLocal();
+            } catch (e) {
+              // If product fetch fails, we just log it.
+              // We DO NOT clear the list - we keep the snapshot from step 1.
+              if (kDebugMode) {
+                print("Error enhancing wishlist with product details: $e");
+              }
+            }
+          },
+          onError: (error) {
+            if (kDebugMode) print("Wishlist stream error: $error");
+          },
+        );
   }
 
-  /// Add: Save Local + Supabase
+  // Fallback manual fetch if needed
+  Future<void> fetchWishlist() async {
+    final user = _supabase.auth.currentUser;
+    if (user != null) _syncWithRemote(user);
+  }
+
+  /// Add: Optimistic Local + Remote
   Future<void> addToWishlist(WishlistItem item) async {
     if (isInWishlist(item.id)) return;
 
+    // Optimistic Update
     _wishlist.add(item);
     notifyListeners();
-    _saveToLocal(); // 💾 Save Local
+    _saveToLocal();
 
     final user = _supabase.auth.currentUser;
     if (user != null) {
       try {
-        await _supabase.from('wishlist').upsert(item.toMap(user.id));
+        await _supabase
+            .from('wishlist')
+            .upsert(
+              item.toMap(user.id),
+              onConflict:
+                  'user_id, product_id', // Ensures uniqueness based on user and product
+            );
       } catch (e) {
         if (kDebugMode) print('Supabase add failed: $e');
+        // Rollback? Usually not needed if stream corrects it.
       }
     }
   }
 
-  /// Remove: Save Local + Supabase
+  /// Remove: Optimistic Local + Remote
   Future<void> removeFromWishlist(String productId) async {
     _wishlist.removeWhere((item) => item.id == productId);
     notifyListeners();
-    _saveToLocal(); // 💾 Save Local
+    _saveToLocal();
 
     final user = _supabase.auth.currentUser;
     if (user != null) {
@@ -81,7 +218,6 @@ class WishlistService extends ChangeNotifier {
   Future<void> _saveToLocal() async {
     final user = _supabase.auth.currentUser;
     final String key = user != null ? 'wishlist_${user.id}' : 'local_wishlist';
-
     final prefs = await SharedPreferences.getInstance();
     final List<String> jsonList = _wishlist.map((item) {
       return jsonEncode(item.toMap(user?.id ?? 'local_user'));
@@ -93,28 +229,35 @@ class WishlistService extends ChangeNotifier {
   Future<void> _loadFromLocal() async {
     final user = _supabase.auth.currentUser;
     final String key = user != null ? 'wishlist_${user.id}' : 'local_wishlist';
-
     final prefs = await SharedPreferences.getInstance();
     final List<String>? jsonList = prefs.getStringList(key);
 
-    if (jsonList != null) {
+    if (jsonList != null && _wishlist.isEmpty) {
+      // Only load if empty to verify cache
+      // Actually, we should allow overwrite if local is source of truth initially
       _wishlist = jsonList.map((jsonStr) {
         return WishlistItem.fromMap(jsonDecode(jsonStr));
       }).toList();
       notifyListeners();
-    } else {
-      _wishlist = [];
     }
   }
 
   Future<void> clearWishlist() async {
+    // This legacy method might just clear local?
+    // If we stream, we should delete from server?
+    // For now, let's keep it local clear + server delete if logged in
     _wishlist.clear();
     notifyListeners();
-    // Do not clear 'local_wishlist' generic key, but clear specific user key if needed
-    // Actually standard clearWishlist might be used for 'Clear All' feature?
-    // If this is for LOGOUT, we should use clearLocalStateOnly.
-    // For now, let's assume this clearWishlist IS the logout clear.
+
     final user = _supabase.auth.currentUser;
+    if (user != null) {
+      // DANGER: Do we really want to wipe server wishlist?
+      // Usually 'Clear Wishlist' means wipe it.
+      try {
+        await _supabase.from('wishlist').delete().eq('user_id', user.id);
+      } catch (_) {}
+    }
+
     final prefs = await SharedPreferences.getInstance();
     if (user != null) {
       await prefs.remove('wishlist_${user.id}');

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../cart/data/cart_data.dart';
 import '../../../cart/data/cart_item.dart';
@@ -173,6 +174,44 @@ class _ProductInfoSection extends StatelessWidget {
               color: Theme.of(context).textTheme.bodySmall?.color,
             ),
           ),
+          // Supplier Info
+          if (product.supplierName != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.store, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  'Sold by: ${product.supplierName}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (product.supplierCode != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      product.supplierCode!,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -227,13 +266,46 @@ class _SelectPharmacyCard extends StatelessWidget {
 
 /* ---------------- BOTTOM BAR ---------------- */
 
-class _BottomBar extends StatelessWidget {
+class _BottomBar extends StatefulWidget {
   final Product product;
 
   const _BottomBar({required this.product});
 
   @override
+  State<_BottomBar> createState() => _BottomBarState();
+}
+
+class _BottomBarState extends State<_BottomBar> {
+  bool isSupplier = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserRole();
+  }
+
+  Future<void> _checkUserRole() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      // Check if user is in 'suppliers' table
+      final supplier = await Supabase.instance.client
+          .from('suppliers')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (mounted) {
+        setState(() {
+          isSupplier = supplier != null;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (isSupplier) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -252,18 +324,18 @@ class _BottomBar extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
-              debugPrint("Product ID: ${product.id}");
+              debugPrint("Product ID: ${widget.product.id}");
 
               context.read<CartData>().addItem(
                 CartItem(
-                  id: product.id,
-                  name: product.name,
-                  title: product.name,
-                  brand: product.category,
+                  id: widget.product.id,
+                  name: widget.product.name,
+                  title: widget.product.name,
+                  brand: widget.product.category,
                   size: 'Standard',
-                  price: product.price,
-                  imagePath: product.image,
-                  imageUrl: product.image,
+                  price: widget.product.price,
+                  imagePath: widget.product.image,
+                  imageUrl: widget.product.image,
                 ),
               );
 
@@ -284,7 +356,7 @@ class _BottomBar extends StatelessWidget {
               ),
             ),
             child: Text(
-              "Add to Cart  •  ₹${product.price}",
+              "Add to Cart  •  ₹${widget.product.price}",
               style: const TextStyle(fontSize: 16),
             ),
           ),

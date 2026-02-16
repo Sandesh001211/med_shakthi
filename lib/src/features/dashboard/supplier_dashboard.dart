@@ -368,30 +368,7 @@ class _SupplierDashboardHomeState extends State<SupplierDashboardHome> {
           ),
         ),
         const SizedBox(width: 15),
-        Expanded(
-          child: Container(
-            height: 50,
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(25),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const TextField(
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search, color: Colors.grey),
-                hintText: "Search analytics...",
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 15),
-              ),
-            ),
-          ),
-        ),
+        const Spacer(),
         const SizedBox(width: 15),
         Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {

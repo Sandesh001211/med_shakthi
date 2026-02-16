@@ -3,8 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:med_shakthi/src/core/theme/theme_provider.dart';
-import 'package:med_shakthi/src/features/cart/data/cart_data.dart';
-import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
 import 'privacy_policy_screen.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -76,25 +74,6 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: "Version & details",
             icon: Icons.info_outline,
             onTap: _showAboutAppDialog,
-          ),
-          const SizedBox(height: 12),
-          _tileButton(
-            title: "Logout",
-            subtitle: "Sign out from your account",
-            icon: Icons.logout,
-            onTap: () async {
-              // Clear local state
-              if (!mounted) return;
-              context.read<CartData>().clearLocalStateOnly();
-              context.read<WishlistService>().clearWishlist();
-
-              // Capture navigator before async operation
-              final navigator = Navigator.of(context);
-
-              await supabase.auth.signOut();
-              if (!mounted) return;
-              navigator.pop();
-            },
           ),
         ],
       ),
@@ -198,19 +177,26 @@ class _SettingsPageState extends State<SettingsPage> {
     required String subtitle,
     required IconData icon,
     required VoidCallback onTap,
+    bool isDestructive = false,
   }) {
+    final color = isDestructive ? Colors.redAccent : const Color(0xFF6AA39B);
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: isDestructive
+              ? Colors.redAccent.withValues(alpha: 0.05)
+              : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
+          border: isDestructive
+              ? Border.all(color: Colors.redAccent.withValues(alpha: 0.1))
+              : null,
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF6AA39B)),
+            Icon(icon, color: color),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -220,16 +206,19 @@ class _SettingsPageState extends State<SettingsPage> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      color: isDestructive
+                          ? Colors.redAccent
+                          : Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                      color: isDestructive
+                          ? Colors.redAccent.withValues(alpha: 0.7)
+                          : Theme.of(context).textTheme.bodyMedium?.color
+                                ?.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -238,9 +227,11 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(
               Icons.arrow_forward_ios,
               size: 14,
-              color: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
+              color: isDestructive
+                  ? Colors.redAccent.withValues(alpha: 0.5)
+                  : Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
             ),
           ],
         ),

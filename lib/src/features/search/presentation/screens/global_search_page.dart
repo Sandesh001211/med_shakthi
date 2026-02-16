@@ -64,7 +64,10 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
     setState(() => loading = true);
 
     try {
-      dynamic query = supabase.from('products').select();
+      dynamic query = supabase.from('products').select('''
+        *,
+        suppliers!inner(name, supplier_code, id)
+      ''');
 
       // Search Filter (Server-side)
       if (_searchQuery.isNotEmpty) {
@@ -271,6 +274,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         onTap: () {
+          final supplierData = product['suppliers'] as Map<String, dynamic>?;
           final productModel = Product(
             id: product['id']?.toString() ?? '',
             name: product['name'] ?? 'Unknown Product',
@@ -278,6 +282,9 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
             image: product['image_url'] ?? '',
             category: product['category'] ?? "General",
             rating: 0.0,
+            supplierName: supplierData?['name'] as String?,
+            supplierCode: supplierData?['supplier_code'] as String?,
+            supplierId: supplierData?['id'] as String?,
           );
           Navigator.push(
             context,
@@ -304,6 +311,20 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
               style: const TextStyle(fontSize: 14, color: Color(0xFF757575)),
             ),
             const SizedBox(height: 4),
+            // Supplier info
+            if (product['suppliers'] != null) ...[
+              Row(
+                children: [
+                  const Icon(Icons.store, size: 12, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    'by ${product['suppliers']['name']}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+            ],
             Text(
               '₹${price.toStringAsFixed(0)}',
               style: const TextStyle(

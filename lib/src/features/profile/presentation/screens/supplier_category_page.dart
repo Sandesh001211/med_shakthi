@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/supplier/inventory/ui/add_product_page.dart';
+import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
+import 'package:med_shakthi/src/features/products/presentation/screens/product_page.dart';
 
 class SupplierCategoryPage extends StatefulWidget {
   const SupplierCategoryPage({super.key});
@@ -91,7 +93,7 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
     });
   }
 
-  /// 🔥 FETCH PRODUCTS (NORMAL + OTHER)
+  /// 🔥 FETCH PRODUCTS (NORMAL + OTHER) - SHOW ALL PRODUCTS
   Future<void> fetchProducts({
     required String category,
     required String subCategory,
@@ -101,28 +103,33 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
       products.clear();
     });
 
-    late final List response;
+    try {
+      late final List response;
 
-    if (category.toLowerCase() == 'other') {
-      response = await supabase
-          .from('products')
-          .select()
-          .eq('category', 'other')
-          .eq('custom_category', subCategory)
-          .limit(50);
-    } else {
-      response = await supabase
-          .from('products')
-          .select()
-          .ilike('category', category)
-          .ilike('sub_category', subCategory)
-          .limit(50);
+      if (category.toLowerCase() == 'other') {
+        response = await supabase
+            .from('products')
+            .select('*, suppliers(name, supplier_code, id)')
+            .eq('category', 'other')
+            .eq('custom_category', subCategory)
+            .limit(50);
+      } else {
+        response = await supabase
+            .from('products')
+            .select('*, suppliers(name, supplier_code, id)')
+            .ilike('category', category)
+            .ilike('sub_category', subCategory)
+            .limit(50);
+      }
+
+      setState(() {
+        products = List<Map<String, dynamic>>.from(response);
+        loadingProducts = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching products: $e');
+      setState(() => loadingProducts = false);
     }
-
-    setState(() {
-      products = List<Map<String, dynamic>>.from(response);
-      loadingProducts = false;
-    });
   }
 
   @override
@@ -259,13 +266,45 @@ class _SupplierCategoryPageState extends State<SupplierCategoryPage> {
                                 final product = products[i];
                                 return InkWell(
                                   onTap: () {
-                                    // Navigate to AddProductPage for editing with the 'product' map
+                                    // Navigate to ProductPage to VIEW product (not edit)
+                                    // Convert Map to Product model
+                                    final productModel = Product(
+                                      id: product['id'],
+                                      name: product['name'],
+                                      image: product['image_url'] ?? '',
+                                      price:
+                                          (product['price'] as num?)
+                                              ?.toDouble() ??
+                                          0.0,
+                                      category: product['category'] ?? '',
+                                      rating:
+                                          (product['rating'] as num?)
+                                              ?.toDouble() ??
+                                          0.0,
+                                      supplierName:
+                                          product['suppliers']?['name'],
+                                      supplierCode:
+                                          product['suppliers']?['supplier_code'],
+                                      supplierId: product['supplier_id'],
+                                    );
+
+                                    // Navigate to ProductPage to VIEW product (not edit)
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ProductPage(product: productModel),
+                                      ),
+                                    );
+                                  },
+                                  onLongPress: () {
+                                    // Long press to edit
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) =>
                                             AddProductPage(product: product),
-                                      ), // Assuming AddProductPage takes a map or needs adaptation
+                                      ),
                                     );
                                   },
                                   child: _buildTile(

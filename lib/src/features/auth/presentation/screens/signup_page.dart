@@ -311,13 +311,42 @@ class _SignupPageState extends State<SignupPage> {
     try {
       final fullName = _nameController.text.trim();
       final phone = '$_countryCode${_phoneController.text.trim()}';
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
 
-      // 🔐 Step 1: Supabase Auth Signup
-      final authResponse = await supabase.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        data: {'full_name': fullName, 'phone': phone}, // Store metadata
-      );
+      AuthResponse? authResponse;
+      bool isLogin = false;
+
+      try {
+        // 🔐 Step 1: Supabase Auth Signup
+        authResponse = await supabase.auth.signUp(
+          email: email,
+          password: password,
+          data: {'full_name': fullName, 'phone': phone},
+        );
+      } on AuthException catch (e) {
+        // Handle "User already registered" by attempting login
+        if (e.message.contains('already registered') || e.statusCode == '400') {
+          try {
+            // Attempt to login to "reactivate" or verify ownership
+            final loginResponse = await supabase.auth.signInWithPassword(
+              email: email,
+              password: password,
+            );
+            if (loginResponse.user != null) {
+              authResponse = loginResponse;
+              isLogin = true; // Mark as login recovery
+            } else {
+              rethrow; // Login failed, rethrow original signup error
+            }
+          } catch (_) {
+            // If login fails (wrong password), throw original "already registered"
+            rethrow;
+          }
+        } else {
+          rethrow;
+        }
+      }
 
       final user = authResponse.user;
       if (user == null) {
@@ -325,51 +354,56 @@ class _SignupPageState extends State<SignupPage> {
       }
 
       // 🧾 Step 2: Insert into users table
-      // Use upsert to handle potential duplicate key errors (if trigger exists or retry)
+      // Use upsert to handle potential duplicate key errors OR reactivate deleted public profile
       await supabase.from('users').upsert({
         'id': user.id, // MUST match auth.users.id
         'name': fullName,
-        'email': _emailController.text.trim(),
+        'email': email,
         'phone': phone,
-        // Only set created_at if it's a new record (optional handling, but simple upsert is fine)
-        'created_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'id'); // Explicitly handle conflict on 'id'
+        // Only set created_at if new? Upsert handles it.
+        // If reacting, we might want to update updated_at if we had it.
+      }, onConflict: 'id');
 
       if (!mounted) return;
 
       // ✅ Success
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Text('Signup Successful'),
-          content: const Text('Your account has been created successfully!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                // Navigator.pop(context); // Remove Login Redirect
-
-                // ➡️ Navigate DIRECTLY to Dashboard
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PharmacyHomeScreen()),
-                );
-              },
-              child: const Text('Continue to Dashboard'),
-            ),
-          ],
-        ),
-      );
+      if (isLogin) {
+        // If we just logged them in, skip "Signup Success" dialog and go straight to dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PharmacyHomeScreen()),
+        );
+      } else {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Signup Successful'),
+            content: const Text('Your account has been created successfully!'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PharmacyHomeScreen(),
+                    ),
+                  );
+                },
+                child: const Text('Continue to Dashboard'),
+              ),
+            ],
+          ),
+        );
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
-      // Handle "User already registered" specifically if message contains it,
-      // though Supabase usually returns a clear message.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
           backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating, // Floating for better visibility
+          behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
         ),
       );

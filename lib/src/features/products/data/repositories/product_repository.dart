@@ -10,7 +10,7 @@ class ProductRepository {
     try {
       final response = await _supabase
           .from('products')
-          .select()
+          .select('*, suppliers(name, supplier_code, id)')
           .order('created_at', ascending: false); // Newest first
 
       // --- DEBUG PRINT ---

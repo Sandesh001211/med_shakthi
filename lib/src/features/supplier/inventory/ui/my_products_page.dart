@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_product_page.dart';
 import '../../../profile/presentation/screens/supplier_category_page.dart';
+import 'package:med_shakthi/src/features/products/data/models/product_model.dart';
+import 'supplier_product_details_page.dart';
 
 class MyProductsPage extends StatefulWidget {
   const MyProductsPage({super.key});
@@ -150,33 +152,59 @@ class _MyProductsPageState extends State<MyProductsPage> {
     final category = p['category'] ?? "No Category";
     final price = p['price']?.toString() ?? "0.00";
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return InkWell(
+      onTap: () {
+        final productModel = Product.fromMap(p);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SupplierProductDetailsPage(product: productModel),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              height: 70,
-              width: 70,
-              color: Colors.grey.shade100,
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Center(
+        ).then((deleted) {
+          if (deleted == true) {
+            setState(() {});
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 70,
+                width: 70,
+                color: Colors.grey.shade100,
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Icon(
+                            getSubCategoryIcon(
+                              p['sub_category'] ?? p['category'] ?? "",
+                            ),
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withValues(alpha: 0.5),
+                            size: 32,
+                          ),
+                        ),
+                      )
+                    : Center(
                         child: Icon(
                           getSubCategoryIcon(
                             p['sub_category'] ?? p['category'] ?? "",
@@ -187,98 +215,87 @@ class _MyProductsPageState extends State<MyProductsPage> {
                           size: 32,
                         ),
                       ),
-                    )
-                  : Center(
-                      child: Icon(
-                        getSubCategoryIcon(
-                          p['sub_category'] ?? p['category'] ?? "",
-                        ),
-                        color: Theme.of(
-                          context,
-                        ).primaryColor.withValues(alpha: 0.5),
-                        size: 32,
-                      ),
-                    ),
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          // Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 16),
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    productName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    category,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "₹$price",
+                    style: const TextStyle(
+                      color: Color(0xFF4CA6A8),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Actions
+            Column(
               children: [
-                Text(
-                  productName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blue),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddProductPage(product: p),
+                      ),
+                    ).then((_) => setState(() {}));
+                  },
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  category,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "₹$price",
-                  style: const TextStyle(
-                    color: Color(0xFF4CA6A8),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("Delete Product"),
+                        content: const Text(
+                          "Are you sure you want to delete this product?",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text(
+                              "Delete",
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      await _deleteProduct(p['id']);
+                    }
+                  },
                 ),
               ],
             ),
-          ),
-          // Actions
-          Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddProductPage(product: p),
-                    ),
-                  ).then((_) => setState(() {}));
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text("Delete Product"),
-                      content: const Text(
-                        "Are you sure you want to delete this product?",
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text("Cancel"),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text(
-                            "Delete",
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirm == true) {
-                    await _deleteProduct(p['id']);
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
