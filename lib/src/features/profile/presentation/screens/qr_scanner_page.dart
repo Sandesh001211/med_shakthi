@@ -26,7 +26,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
   final ImagePicker picker = ImagePicker();
 
-  /// ✅ Fetch product from Supabase
+  ///  Fetch product from Supabase
   Future<void> _openProduct(String productId) async {
     setState(() {
       isLoading = true;
@@ -77,7 +77,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     }
   }
 
-  /// ✅ Pick QR from gallery
+  ///  Pick QR from gallery
   Future<void> _pickFromGallery() async {
     final XFile? image =
     await picker.pickImage(source: ImageSource.gallery);
@@ -109,7 +109,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     }
   }
 
-  /// ✅ Scan from camera
+  ///  Scan from camera
   void _onDetect(BarcodeCapture capture) {
     if (isScanned) return;
 
