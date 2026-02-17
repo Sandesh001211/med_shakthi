@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'sales_stats_service.dart';
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:open_filex/open_filex.dart';
 
 class SalesAnalyticsPage extends StatefulWidget {
   const SalesAnalyticsPage({super.key});
@@ -1027,34 +1032,38 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF63B4B7), Color(0xFF4CA6A8)],
+                GestureDetector(
+                  onTap: () => _exportCSV(transactions),
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF63B4B7), Color(0xFF4CA6A8)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(
-                        Icons.file_download_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Export',
-                        style: TextStyle(
+                    child: Row(
+                      children: const [
+                        Icon(
+                          Icons.file_download_outlined,
                           color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          size: 18,
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 6),
+                        Text(
+                          'Export',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+
               ],
             ),
           ),
@@ -1350,4 +1359,60 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
   void _showPaymentFilter(BuildContext context) {
     _showFilterBottomSheet(context);
   }
+
+  Future<void> _exportCSV(List<Map<String, dynamic>> transactions) async {
+    try {
+
+      // CSV rows
+      List<List<dynamic>> rows = [];
+
+      rows.add([
+        "Order ID",
+        "Medicine",
+        "Qty",
+        "Amount",
+        "Status",
+        "Date"
+      ]);
+
+      for (var t in transactions) {
+        rows.add([
+          t['id'],
+          t['medicine'],
+          t['qty'],
+          t['amount'],
+          t['status'],
+          t['date']
+        ]);
+      }
+
+      // Convert to CSV
+      String csvData = const ListToCsvConverter().convert(rows);
+
+      // Save in app directory (NO PERMISSION REQUIRED)
+      final directory = await getApplicationDocumentsDirectory();
+
+      final path =
+          "${directory.path}/sales_export_${DateTime.now().millisecondsSinceEpoch}.csv";
+
+      final file = File(path);
+
+      await file.writeAsString(csvData);
+
+      // Open file
+      await OpenFilex.open(path);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("CSV Exported Successfully")),
+      );
+
+    } catch (e) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Export failed: $e")),
+      );
+    }
+  }
+
+
 }
