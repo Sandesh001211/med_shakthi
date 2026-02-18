@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/core/utils/app_constants.dart';
 import 'package:med_shakthi/src/features/support/presentation/screens/support_webview_screen.dart';
-import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
 
 import 'package:med_shakthi/src/features/checkout/presentation/screens/address_management_screen.dart';
 import 'package:med_shakthi/src/features/checkout/presentation/screens/payment_method_screen.dart';
@@ -89,7 +88,8 @@ class _AccountPageState extends State<AccountPage> {
     try {
       // Clear local persistence before signing out
       context.read<CartData>().clearLocalStateOnly();
-      context.read<WishlistService>().clearWishlist();
+      // WE DO NOT call WishlistService.clearWishlist() here because it deletes from cloud!
+      // The local state will be automatically cleared by the auth listener in WishlistService.
 
       await supabase.auth.signOut();
     } catch (e) {

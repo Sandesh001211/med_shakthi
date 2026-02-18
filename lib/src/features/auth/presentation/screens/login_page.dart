@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:med_shakthi/src/features/dashboard/pharmacy_home_screen.dart';
-import 'package:med_shakthi/src/features/dashboard/supplier_dashboard.dart';
+
 import 'package:med_shakthi/src/core/widgets/app_logo.dart';
 import 'package:med_shakthi/src/features/auth/presentation/screens/role_selection_page.dart';
 
@@ -44,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (res.user != null) {
-        final supplierData = await supabase
+        await supabase
             .from('suppliers')
             .select()
             .eq('user_id', res.user!.id)
@@ -164,11 +163,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.color
-                              ?.withValues(alpha: 0.6),
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -218,10 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: RichText(
                         text: TextSpan(
                           style: TextStyle(
-                            color: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.color
+                            color: Theme.of(context).textTheme.bodySmall?.color
                                 ?.withValues(alpha: 0.6),
                             fontSize: 14,
                           ),
