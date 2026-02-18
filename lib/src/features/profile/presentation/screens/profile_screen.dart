@@ -10,7 +10,6 @@ import 'package:med_shakthi/src/features/support/presentation/screens/support_we
 import 'package:med_shakthi/src/features/checkout/presentation/screens/address_management_screen.dart';
 import 'package:med_shakthi/src/features/checkout/presentation/screens/payment_method_screen.dart';
 import 'package:med_shakthi/src/features/cart/data/cart_data.dart';
-import 'package:med_shakthi/src/features/wishlist/data/wishlist_service.dart';
 import '../../../orders/orders_page.dart';
 
 class AccountPage extends StatefulWidget {
