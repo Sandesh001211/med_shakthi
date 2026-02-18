@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/dashboard/pharmacy_home_screen.dart';
 import 'package:med_shakthi/src/core/widgets/app_logo.dart';
 
+import 'login_page.dart';
+
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
@@ -247,7 +249,13 @@ class _SignupPageState extends State<SignupPage> {
                   /// Login Redirect
                   Center(
                     child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                              (route) => false,
+                        );
+                      },
                       child: RichText(
                         text: TextSpan(
                           style: TextStyle(
