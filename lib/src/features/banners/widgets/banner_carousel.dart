@@ -15,15 +15,18 @@ class BannerCarousel extends StatefulWidget {
 
 class _BannerCarouselState extends State<BannerCarousel> {
   final _bannerService = BannerServiceSupabase();
-  final PageController _pageController = PageController();
+  late final PageController _pageController;
   Timer? _autoScrollTimer;
   int _currentPage = 0;
   List<SupabaseBannerModel> _banners = [];
+  bool _timerStarted = false;
 
   @override
   void initState() {
     super.initState();
-    _startAutoScroll();
+    // Start at a middle offset so we can scroll both ways infinitely
+    _pageController = PageController(initialPage: 5000);
+    _currentPage = 0;
   }
 
   @override
@@ -34,8 +37,10 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 
   void _startAutoScroll() {
+    if (_timerStarted) return;
+    _timerStarted = true;
     _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
@@ -43,14 +48,34 @@ class _BannerCarouselState extends State<BannerCarousel> {
       if (_banners.length <= 1) return;
 
       if (_pageController.hasClients) {
-        final nextPage = _pageController.page!.round() + 1;
+        final currentRaw = _pageController.page?.round() ?? 5000;
         _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOutCubic,
+          currentRaw + 1,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
         );
       }
     });
+  }
+
+  void _updateBanners(List<SupabaseBannerModel> banners) {
+    if (banners.isEmpty) return;
+
+    final changed = banners.length != _banners.length ||
+        banners.any((b) => !_banners.any((old) => old.id == b.id));
+
+    _banners = banners;
+
+    if (changed) {
+      // Reset to first banner when list changes
+      if (_pageController.hasClients) {
+        final newBase = (_pageController.page?.round() ?? 5000);
+        final alignedBase = newBase - (newBase % banners.length);
+        _pageController.jumpToPage(alignedBase);
+      }
+    }
+
+    _startAutoScroll();
   }
 
   @override
@@ -58,20 +83,25 @@ class _BannerCarouselState extends State<BannerCarousel> {
     return StreamBuilder<List<SupabaseBannerModel>>(
       stream: _bannerService.getActiveBannersStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            _banners.isEmpty) {
           return _buildLoadingState();
         }
 
-        if (snapshot.hasError) {
+        if (snapshot.hasError && _banners.isEmpty) {
           return _buildErrorState();
         }
 
-        final banners = snapshot.data ?? [];
-        _banners = banners;
+        final banners = snapshot.data ?? _banners;
 
         if (banners.isEmpty) {
           return widget.fallbackWidget ?? _buildEmptyState();
         }
+
+        // Update banners and start timer if needed
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _updateBanners(banners);
+        });
 
         return Column(
           children: [
@@ -80,12 +110,13 @@ class _BannerCarouselState extends State<BannerCarousel> {
               child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index % banners.length;
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _currentPage = index % banners.length;
+                    });
+                  }
                 },
-                // Infinite scroll simulation
-                itemCount: banners.length * 1000,
+                itemCount: banners.length * 10000,
                 itemBuilder: (context, index) {
                   return _buildBannerCard(banners[index % banners.length]);
                 },
