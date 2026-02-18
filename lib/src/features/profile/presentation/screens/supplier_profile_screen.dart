@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
+
 import '../../../../features/profile/presentation/screens/privacy_policy_screen.dart';
 import 'supplier_faq_screen.dart';
 

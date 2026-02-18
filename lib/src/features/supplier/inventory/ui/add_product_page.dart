@@ -54,6 +54,7 @@ class _AddProductPageState extends State<AddProductPage> {
   File? imageFile;
   String? existingImageUrl;
   String? supplierCode;
+  String? supplierId;
   bool _isLoading = false;
 
   @override
@@ -101,12 +102,13 @@ class _AddProductPageState extends State<AddProductPage> {
     try {
       final data = await supabase
           .from('suppliers')
-          .select('supplier_code')
+          .select('id, supplier_code')
           .eq('user_id', user.id)
           .maybeSingle();
 
       if (mounted) {
         setState(() {
+          supplierId = data?['id'];
           supplierCode = data?['supplier_code'];
           supplierIdController.text = supplierCode ?? 'Unknown';
         });
@@ -174,6 +176,7 @@ class _AddProductPageState extends State<AddProductPage> {
             ? customSubCategoryController.text.trim()
             : null,
         'supplier_code': supplierCode,
+        'supplier_id': supplierId, // Linked to suppliers table
         'image_url': imageUrl,
       };
 

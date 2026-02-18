@@ -164,19 +164,18 @@ Future<void> main() async {
 
   try {
     await dotenv.load(fileName: ".env");
-    
+
     final supabaseUrl = dotenv.env['SUPABASE_URL'];
     final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
 
-    if (supabaseUrl == null || supabaseUrl.isEmpty || 
-        supabaseAnonKey == null || supabaseAnonKey.isEmpty) {
+    if (supabaseUrl == null ||
+        supabaseUrl.isEmpty ||
+        supabaseAnonKey == null ||
+        supabaseAnonKey.isEmpty) {
       throw Exception('Supabase URL or Anon Key is missing in .env');
     }
 
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
+    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
   } catch (e) {
     debugPrint('Initialization error: $e');
     // We run the app regardless to show an error UI instead of hanging
@@ -279,14 +278,15 @@ class _RootRouterState extends State<RootRouter> {
           builder: (context) => AlertDialog(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             surfaceTintColor: Colors.transparent,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
             title: Column(
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6AA39B).withOpacity(0.1),
+                    color: const Color(0xFF6AA39B).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -327,10 +327,13 @@ class _RootRouterState extends State<RootRouter> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: Color(0xFF6AA39B)),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Stay',
-                          style: TextStyle(color: Color(0xFF6AA39B))),
+                      child: const Text(
+                        'Stay',
+                        style: TextStyle(color: Color(0xFF6AA39B)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -343,7 +346,8 @@ class _RootRouterState extends State<RootRouter> {
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: const Text('Exit'),
                     ),
