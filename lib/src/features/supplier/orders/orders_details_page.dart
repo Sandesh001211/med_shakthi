@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:med_shakthi/src/features/chat/services/chat_service.dart';
+import 'package:med_shakthi/src/features/chat/presentation/screens/unified_chat_screen.dart';
+import 'package:med_shakthi/src/core/utils/smart_product_image.dart';
 
 class OrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -24,14 +27,20 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
   Future<void> fetchOrderDetails() async {
     try {
+      // Use !inner on users to ensure we get order only if user exists,
+      // or left join (default) is fine but we need to debug the response.
+      // Explicitly selecting fields helps.
       final response = await supabase
           .from('orders')
           .select('''
             *,
-            order_details (*)
+            order_details (*),
+            users:user_id (name, phone)
           ''')
           .eq('id', widget.orderId)
           .single();
+
+      debugPrint("Order Details Response: $response");
 
       if (mounted) {
         setState(() {
@@ -106,14 +115,11 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final status = order!['status'] ?? 'Unknown';
     final items = order!['order_details'] as List<dynamic>;
 
-    // Assumption: Buyer address is stored in shipping_address column in orders table
-    // If not, we might need to fetch it from 'profiles' table if we have buyer_id
-    // For now, using a safe fallback
+    // Fetch buyer details from the joined 'users' table
+    final userData = order!['users'] as Map<String, dynamic>?;
     final address = order!['shipping_address'] ?? 'Address not available';
-    final buyerName = order!['buyer_name'] ?? 'Unknown Buyer';
-    final phone =
-        order!['buyer_phone'] ??
-        'Phone not available'; // Assuming this field exist
+    final buyerName = userData?['name'] ?? 'Unknown Buyer';
+    final phone = userData?['phone'] ?? 'Phone not available';
 
     return Scaffold(
       appBar: AppBar(title: const Text("Order Details"), centerTitle: true),
@@ -122,14 +128,17 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ... inside build method
             // Shipping Address Card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +148,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                       Icon(
                         Icons.location_on,
                         size: 20,
-                        color: Colors.blue.shade700,
+                        color: Theme.of(context).primaryColor,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -147,17 +156,114 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: Colors.blue.shade900,
+                          color: Theme.of(context).primaryColor,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  // Merging Buyer Details into Address Card for context
+                  if (buyerName != 'Unknown Buyer') ...[
+                    Text(
+                      buyerName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (phone != 'Phone not available')
+                      Text(
+                        phone,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
                   Text(
                     address,
-                    style: const TextStyle(fontSize: 14, height: 1.4),
+                    style: TextStyle(color: Colors.grey.shade800, height: 1.3),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 💬 Chat Action (Preserved)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  if (order != null && order!['user_id'] != null) {
+                    try {
+                      final currentUser =
+                          Supabase.instance.client.auth.currentUser;
+                      if (currentUser == null) return;
+
+                      final supplierRes = await Supabase.instance.client
+                          .from('suppliers')
+                          .select('id')
+                          .eq('user_id', currentUser.id)
+                          .maybeSingle();
+
+                      if (supplierRes == null) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Supplier profile not found'),
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      final String currentSupplierId = supplierRes['id'];
+
+                      final chatId = await ChatService().getOrCreateChat(
+                        orderId: widget.orderId,
+                        supplierId: currentSupplierId,
+                        userId: order!['user_id'],
+                      );
+
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UnifiedChatScreen(
+                              chatId: chatId,
+                              otherUserName: buyerName,
+                              otherUserId: order!['user_id'],
+                              otherUserImage: null,
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error starting chat: $e')),
+                        );
+                      }
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Customer info not available'),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.chat),
+                label: const Text('Chat with Customer'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).primaryColor,
+                  side: BorderSide(color: Theme.of(context).primaryColor),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -170,48 +276,32 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             ),
             _infoRow("Order Date", formattedDate),
             _infoRow("Status", status),
-            _infoRow(
-              "Payment",
-              "Credit (30 Days)",
-            ), // Placeholder till we have payment info
+            _infoRow("Payment", "Credit (30 Days)"),
             const SizedBox(height: 20),
 
-            // 🏥 Pharmacy Details
-            _sectionTitle("Pharmacy Details"),
-            _infoRow("Pharmacy Name", buyerName),
-            _infoRow("Contact", phone),
-            const SizedBox(height: 20),
+            // Removed "Pharmacy Details" section as requested
 
             // 💊 Items Ordered
             _sectionTitle("Items Ordered"),
             ...items.map((item) {
-              // Use data directly from order_details (no products join needed)
-              return _medicineItem(
-                name: item['item_name'] ?? 'Unknown Product',
-                batch: item['brand'] ?? 'N/A',
-                expiry: 'N/A', // Not stored in order_details
-                qty: "${item['quantity']} ${item['unit_size'] ?? 'units'}",
-                price: "₹${item['price']}",
-              );
+              // Now using the Rich Item Card
+              return _buildItemCard(context, item);
             }),
             const SizedBox(height: 20),
 
             // 💰 Billing Summary
             _sectionTitle("Billing Summary"),
             _infoRow("Subtotal", "₹${order!['total_amount']}"),
-            // Assuming tax is included or calculated. For simplest view, showing total.
-            // _infoRow("GST (12%)", "₹147"),
             _infoRow("Total Amount", "₹${order!['total_amount']}"),
             const SizedBox(height: 30),
 
-            // 🚚 Actions
+            // 🚚 Actions (Preserved)
             if (status == 'Pending')
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   OutlinedButton(
-                    onPressed: () =>
-                        updateOrderStatus("Cancelled"), // Rejecting = Cancelled
+                    onPressed: () => updateOrderStatus("Cancelled"),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                     ),
@@ -228,7 +318,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => updateOrderStatus("Dispatched"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                  ),
                   child: const Text("Mark as Dispatched"),
                 ),
               )
@@ -236,8 +328,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed:
-                      () {}, // Maybe Mark Delivered is manual or by buyer?
+                  onPressed: () {},
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                   child: const Text("Order Dispatched"),
                 ),
@@ -279,26 +370,81 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
-  Widget _medicineItem({
-    required String name,
-    required String batch,
-    required String expiry,
-    required String qty,
-    required String price,
-  }) {
-    return Card(
+  Widget _buildItemCard(BuildContext context, Map<String, dynamic> item) {
+    // Extract product data from the joined 'products' table
+    final product = item['products'] as Map<String, dynamic>? ?? {};
+    final imageUrl = product['image_url'];
+    final category = product['category'] ?? 'Medicine';
+
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text("Batch/SKU: $batch"),
-            Text("Expiry: $expiry"),
-            Text("Quantity: $qty"),
-            Text("Price: $price"),
+            Container(
+              height: 60,
+              width: 60,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SmartProductImage(
+                imageUrl: imageUrl,
+                category: category,
+                fit: BoxFit.cover,
+                width: 60,
+                height: 60,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['item_name'] ?? 'Unknown Product',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    item['brand'] ?? 'N/A', // Using brand as subtext
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Qty: ${item['quantity']} | Unit: ${item['unit_size'] ?? 'N/A'}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '₹${item['price']}',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

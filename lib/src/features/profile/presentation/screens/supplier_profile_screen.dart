@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
 import '../../../../features/profile/presentation/screens/privacy_policy_screen.dart';
@@ -13,7 +15,11 @@ class SupplierProfileScreen extends StatefulWidget {
 class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   bool _isLoading = false;
-  bool _isEditing = false; // Track editing state
+  bool _isEditing = false;
+  bool _isUploadingAvatar = false;
+
+  File? _profileImageFile;
+  String? _profileImageUrl;
 
   // Controllers for editable fields
   final _companyNameController = TextEditingController();
@@ -93,6 +99,9 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
             _gstController.text = data['gst_number'] ?? '';
             _panController.text = data['pan_number'] ?? '';
             _companyType = data['company_type'] ?? '';
+
+            // Profile image
+            _profileImageUrl = data['profile_image_url'] as String?;
           });
         }
       } catch (e) {
@@ -128,6 +137,7 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
             'drug_license_number': _drugLicenseController.text,
             'gst_number': _gstController.text,
             'pan_number': _panController.text,
+            if (_profileImageUrl != null) 'profile_image_url': _profileImageUrl,
           })
           .eq('user_id', user.id);
 
@@ -147,6 +157,65 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _profileImageFile = File(picked.path);
+      _isUploadingAvatar = true;
+    });
+
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      final ext = picked.path.split('.').last.toLowerCase();
+      final fileName = '${user.id}/supplier_avatar.$ext';
+
+      await supabase.storage
+          .from('avatars')
+          .upload(
+            fileName,
+            File(picked.path),
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+      final cacheBustedUrl =
+          '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+      // Save URL to suppliers table
+      await supabase
+          .from('suppliers')
+          .update({'profile_image_url': publicUrl})
+          .eq('user_id', user.id);
+
+      if (mounted) {
+        setState(() => _profileImageUrl = cacheBustedUrl);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo updated!'),
+            backgroundColor: Color(0xFF4C8077),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Supplier avatar upload error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload photo: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
     }
   }
 
@@ -355,39 +424,71 @@ class _SupplierProfileScreenState extends State<SupplierProfileScreen> {
       ),
       child: Column(
         children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: const Color(0xFF4C8077).withValues(alpha: 0.1),
-                child: Text(
-                  _companyNameController.text.isNotEmpty
-                      ? _companyNameController.text[0].toUpperCase()
-                      : "S",
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4C8077),
+          GestureDetector(
+            onTap: _isUploadingAvatar ? null : _pickProfileImage,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: const Color(
+                    0xFF4C8077,
+                  ).withValues(alpha: 0.1),
+                  backgroundImage: _profileImageFile != null
+                      ? FileImage(_profileImageFile!) as ImageProvider
+                      : (_profileImageUrl != null &&
+                                _profileImageUrl!.isNotEmpty
+                            ? NetworkImage(_profileImageUrl!)
+                            : null),
+                  child:
+                      (_profileImageFile == null &&
+                          (_profileImageUrl == null ||
+                              _profileImageUrl!.isEmpty))
+                      ? Text(
+                          _companyNameController.text.isNotEmpty
+                              ? _companyNameController.text[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4C8077),
+                          ),
+                        )
+                      : null,
+                ),
+                if (_isUploadingAvatar)
+                  const Positioned.fill(
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.black38,
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: Color(0xFF4C8077),
+                      size: 18,
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.verified,
-                    color: Colors.blue,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           // Editable Company Name if in editing mode

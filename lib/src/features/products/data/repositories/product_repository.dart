@@ -43,9 +43,37 @@ class ProductRepository {
     }
   }
 
-  // --- NEW: Delete a product ---
+  // --- Delete a product and its storage image ---
   Future<void> deleteProduct(String productId) async {
     try {
+      // 1. Fetch the product's image_url before deleting
+      final product = await _supabase
+          .from('products')
+          .select('image_url')
+          .eq('id', productId)
+          .maybeSingle();
+
+      // 2. Delete the image from storage if it exists
+      final imageUrl = product?['image_url'] as String?;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(imageUrl);
+          final segments = uri.pathSegments;
+          const bucket = 'product-images';
+          final bucketIndex = segments.indexOf(bucket);
+          if (bucketIndex != -1 && bucketIndex < segments.length - 1) {
+            final filePath = segments.sublist(bucketIndex + 1).join('/');
+            await _supabase.storage.from(bucket).remove([filePath]);
+          }
+        } catch (storageError) {
+          // Log but don't block the DB delete
+          debugPrint(
+            '⚠️ Could not delete product image from storage: $storageError',
+          );
+        }
+      }
+
+      // 3. Delete the product record
       await _supabase.from('products').delete().eq('id', productId);
     } catch (e) {
       debugPrint('❌ Error deleting product: $e');

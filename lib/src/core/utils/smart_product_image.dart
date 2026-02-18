@@ -23,6 +23,25 @@ class SmartProductImage extends StatelessWidget {
     // 1. Determine Fallback Data (Icon & Color) based on Category
     final fallback = _getFallbackData(context, category);
 
+    // If no image URL, show fallback immediately without a network request
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Container(
+          height: height,
+          width: width,
+          color: fallback.backgroundColor,
+          child: Center(
+            child: Icon(
+              fallback.icon,
+              color: fallback.iconColor,
+              size: (width != null) ? width! * 0.5 : 40,
+            ),
+          ),
+        ),
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: Container(
@@ -30,7 +49,7 @@ class SmartProductImage extends StatelessWidget {
         width: width,
         color: fallback.backgroundColor, // Background while loading or if fails
         child: Image.network(
-          imageUrl ?? '',
+          imageUrl!,
           fit: fit,
           height: height,
           width: width,
@@ -51,22 +70,17 @@ class SmartProductImage extends StatelessWidget {
               child: Icon(
                 fallback.icon,
                 color: fallback.iconColor.withValues(alpha: 0.5),
-                size: (width != null) ? width! * 0.4 : 30, // Scale icon
+                size: (width != null) ? width! * 0.4 : 30,
               ),
             );
           },
           // 4. Error Builder (show fallback)
           errorBuilder: (context, error, stackTrace) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    fallback.icon,
-                    color: fallback.iconColor,
-                    size: (width != null) ? width! * 0.5 : 40,
-                  ),
-                ],
+              child: Icon(
+                fallback.icon,
+                color: fallback.iconColor,
+                size: (width != null) ? width! * 0.5 : 40,
               ),
             );
           },

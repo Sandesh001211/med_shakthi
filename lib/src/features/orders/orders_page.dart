@@ -46,10 +46,10 @@ class _OrdersPageState extends State<OrdersPage> {
     setState(() => _loading = true);
 
     try {
-      // ✅ Fetch user orders (latest first)
+      // ✅ Fetch user orders with Supplier details (latest first)
       final res = await supabase
           .from('orders')
-          .select()
+          .select('*, suppliers(company_name)')
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
 
@@ -61,6 +61,7 @@ class _OrdersPageState extends State<OrdersPage> {
         _orders = list;
       });
     } catch (e) {
+      debugPrint("Fetch orders error: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -71,29 +72,51 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredOrders {
-    List<Map<String, dynamic>> filtered = [..._orders];
+  // Group orders by order_group_id
+  List<List<Map<String, dynamic>>> get _groupedOrders {
+    final Map<String, List<Map<String, dynamic>>> groups = {};
 
-    // ✅ Status filter
-    if (selectedStatus != "All") {
-      final statusDb = selectedStatus.toLowerCase();
-      filtered = filtered.where((o) {
-        final s = (o["status"] ?? "").toString().toLowerCase();
-        return s == statusDb;
-      }).toList();
+    for (var order in _orders) {
+      // Status filter
+      if (selectedStatus != "All") {
+        final statusDb = (order["status"] ?? "").toString().toLowerCase();
+        if (statusDb != selectedStatus.toLowerCase()) continue;
+      }
+
+      // Search filter
+      if (searchText.trim().isNotEmpty) {
+        final q = searchText.toLowerCase();
+        final orderId = (order["order_group_id"] ?? "")
+            .toString()
+            .toLowerCase();
+        final itemName = (order["item_name"] ?? "").toString().toLowerCase();
+        // Check supplier name if available
+        final supplier = order['suppliers'] as Map<String, dynamic>?;
+        final supplierName = (supplier?['company_name'] ?? "")
+            .toString()
+            .toLowerCase();
+
+        if (!orderId.contains(q) &&
+            !itemName.contains(q) &&
+            !supplierName.contains(q)) {
+          continue;
+        }
+      }
+
+      final groupId = (order["order_group_id"] ?? "unknown").toString();
+      groups.putIfAbsent(groupId, () => []).add(order);
     }
 
-    // ✅ Search filter (order_group_id / item_name)
-    if (searchText.trim().isNotEmpty) {
-      final q = searchText.toLowerCase();
-      filtered = filtered.where((o) {
-        final orderId = (o["order_group_id"] ?? "").toString().toLowerCase();
-        final itemName = (o["item_name"] ?? "").toString().toLowerCase();
-        return orderId.contains(q) || itemName.contains(q);
-      }).toList();
-    }
+    // Sort groups by the created_at of the first item (should be latest due to fetch order)
+    final sortedGroups = groups.values.toList();
+    // Assuming the fetch order handled the primary sort, but re-sorting by 'latest in group' is safer
+    sortedGroups.sort((a, b) {
+      final aDate = DateTime.parse(a.first['created_at']);
+      final bDate = DateTime.parse(b.first['created_at']);
+      return bDate.compareTo(aDate);
+    });
 
-    return filtered;
+    return sortedGroups;
   }
 
   String _formatDate(dynamic createdAt) {
@@ -105,7 +128,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final orders = _filteredOrders;
+    final groupedOrders = _groupedOrders;
 
     return Scaffold(
       appBar: AppBar(
@@ -125,7 +148,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 setState(() => searchText = v);
               },
               decoration: InputDecoration(
-                hintText: "Search by Order ID or Item name",
+                hintText: "Search ID, Item, or Supplier",
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -164,12 +187,12 @@ class _OrdersPageState extends State<OrdersPage> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : orders.isEmpty
+                : groupedOrders.isEmpty
                 ? const Center(child: Text("No orders found."))
                 : ListView.builder(
-                    itemCount: orders.length,
+                    itemCount: groupedOrders.length,
                     itemBuilder: (context, index) {
-                      return _orderCard(orders[index]);
+                      return _orderGroupCard(groupedOrders[index]);
                     },
                   ),
           ),
@@ -178,84 +201,113 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  // ✅ Order Card (Real data)
-  Widget _orderCard(Map<String, dynamic> order) {
-    final orderGroupId = (order["order_group_id"] ?? "").toString();
-    final status = (order["status"] ?? "pending").toString();
-    final itemName = (order["item_name"] ?? "Item").toString();
-    final brand = (order["brand"] ?? "").toString();
-    final qty = (order["quantity"] ?? 1).toString();
-    final totalAmount = (order["total_amount"] ?? 0).toString();
-    final date = _formatDate(order["created_at"]);
+  // ✅ Grouped Order Card
+  Widget _orderGroupCard(List<Map<String, dynamic>> group) {
+    if (group.isEmpty) return const SizedBox.shrink();
+
+    // Common details from the first order in the group
+    final firstOrder = group.first;
+    final orderGroupId = (firstOrder["order_group_id"] ?? "").toString();
+    final date = _formatDate(firstOrder["created_at"]);
+
+    // Calculate total for the ENTIRE group
+    double groupTotal = 0;
+    for (var o in group) {
+      groupTotal += (o['total_amount'] ?? 0);
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      elevation: 2,
+      elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Order Group ID + Status
+            // Header: Group ID and Date
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   "Order #${orderGroupId.isEmpty ? "N/A" : orderGroupId.substring(0, 8)}",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-                _statusBadge(status),
+                Text(
+                  date,
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
-
-            const SizedBox(height: 6),
-
-            // ✅ Item / Brand
-            Text(itemName, style: const TextStyle(fontSize: 14)),
-            if (brand.isNotEmpty)
-              Text(
-                brand,
-                style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                  fontSize: 12,
-                ),
-              ),
-
-            const SizedBox(height: 6),
-
-            // ✅ Amount + Qty
-            Text("₹$totalAmount • Qty: $qty"),
+            const SizedBox(height: 4),
             Text(
-              "Ordered on: $date",
-              style: TextStyle(
-                color: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+              "Total: ₹${groupTotal.toStringAsFixed(2)}",
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.teal,
               ),
             ),
 
-            const Divider(height: 20),
+            const Divider(),
 
-            // ✅ Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => OrderDetailScreen(orderData: order),
-                      ),
-                    );
-                  },
-                  child: const Text("View Details"),
+            // List of Shipments (Sub-orders)
+            ...group.map((order) {
+              final status = (order["status"] ?? "pending").toString();
+              // Try to get supplier name
+              final supplier = order['suppliers'] as Map<String, dynamic>?;
+              final supplierName =
+                  supplier?['company_name'] ?? "Unknown Supplier";
+              final total = (order['total_amount'] ?? 0).toString();
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
                 ),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Shipment from $supplierName",
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Amount: ₹$total",
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _statusBadge(status),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => OrderDetailScreen(orderData: order),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -292,17 +344,17 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         status.toUpperCase(), // Display in caps for better visibility
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
-          fontSize: 12,
+          fontSize: 10,
         ),
       ),
     );

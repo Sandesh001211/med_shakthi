@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:med_shakthi/src/features/profile/presentation/screens/settings_page.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:med_shakthi/src/core/utils/app_constants.dart';
+import 'package:med_shakthi/src/features/support/presentation/screens/support_webview_screen.dart';
 import 'package:med_shakthi/src/features/auth/presentation/screens/login_page.dart';
 
 import 'package:med_shakthi/src/features/checkout/presentation/screens/address_management_screen.dart';
@@ -24,8 +26,10 @@ class _AccountPageState extends State<AccountPage> {
   final _picker = ImagePicker();
 
   File? _profileImage;
+  String? _avatarUrl;
 
   bool _isLoading = false;
+  bool _isUploadingAvatar = false;
 
   String _email = "Loading...";
   String _displayName = "User";
@@ -72,6 +76,7 @@ class _AccountPageState extends State<AccountPage> {
         setState(() {
           _displayName = data['name'] ?? _displayName;
           _phone = data['phone'] ?? _phone;
+          _avatarUrl = data['avatar_url'] as String?;
         });
       }
     } catch (_) {}
@@ -109,8 +114,135 @@ class _AccountPageState extends State<AccountPage> {
       source: ImageSource.gallery,
       imageQuality: 75,
     );
-    if (picked != null) {
-      setState(() => _profileImage = File(picked.path));
+    if (picked == null) return;
+
+    setState(() {
+      _profileImage = File(picked.path);
+      _isUploadingAvatar = true;
+    });
+
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      final ext = picked.path.split('.').last.toLowerCase();
+      final fileName = '${user.id}/avatar.$ext';
+
+      // Upload to avatars bucket (upsert to replace existing)
+      await supabase.storage
+          .from('avatars')
+          .upload(
+            fileName,
+            File(picked.path),
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+      // Append cache-buster so Flutter re-fetches the new image
+      final cacheBustedUrl =
+          '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+      // Save URL to users table
+      await supabase
+          .from('users')
+          .update({'avatar_url': publicUrl})
+          .eq('id', user.id);
+
+      if (mounted) {
+        setState(() => _avatarUrl = cacheBustedUrl);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo updated!'),
+            backgroundColor: Color(0xFF6AA39B),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Avatar upload error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload photo: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
+    }
+  }
+
+  Future<void> _showEditProfileDialog() async {
+    final nameCtrl = TextEditingController(text: _displayName);
+    final phoneCtrl = TextEditingController(text: _phone);
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Phone',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true) {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+      try {
+        await supabase
+            .from('users')
+            .update({
+              'name': nameCtrl.text.trim(),
+              'phone': phoneCtrl.text.trim(),
+            })
+            .eq('id', user.id);
+
+        if (mounted) {
+          setState(() {
+            _displayName = nameCtrl.text.trim();
+            _phone = phoneCtrl.text.trim();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated!'),
+              backgroundColor: Color(0xFF6AA39B),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+        }
+      }
     }
   }
 
@@ -234,7 +366,7 @@ class _AccountPageState extends State<AccountPage> {
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(48),
-                          onTap: _pickProfileImage,
+                          onTap: _isUploadingAvatar ? null : _pickProfileImage,
                           child: Stack(
                             alignment: Alignment.bottomRight,
                             children: [
@@ -245,8 +377,15 @@ class _AccountPageState extends State<AccountPage> {
                                 ).withValues(alpha: 0.12),
                                 backgroundImage: _profileImage != null
                                     ? FileImage(_profileImage!)
-                                    : null,
-                                child: _profileImage == null
+                                    : (_avatarUrl != null &&
+                                              _avatarUrl!.isNotEmpty
+                                          ? NetworkImage(_avatarUrl!)
+                                                as ImageProvider
+                                          : null),
+                                child:
+                                    (_profileImage == null &&
+                                        (_avatarUrl == null ||
+                                            _avatarUrl!.isEmpty))
                                     ? Text(
                                         _displayName.isNotEmpty
                                             ? _displayName[0].toUpperCase()
@@ -259,6 +398,21 @@ class _AccountPageState extends State<AccountPage> {
                                       )
                                     : null,
                               ),
+                              if (_isUploadingAvatar)
+                                const Positioned.fill(
+                                  child: CircleAvatar(
+                                    radius: 34,
+                                    backgroundColor: Colors.black38,
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               Container(
                                 padding: const EdgeInsets.all(3),
                                 decoration: BoxDecoration(
@@ -283,11 +437,30 @@ class _AccountPageState extends State<AccountPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _displayName,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _displayName,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  InkWell(
+                                    onTap: _showEditProfileDialog,
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.edit_outlined,
+                                        size: 16,
+                                        color: Color(0xFF6AA39B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -379,6 +552,23 @@ class _AccountPageState extends State<AccountPage> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const SettingsPage(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        //  Help & Support Section
+                        _SimpleExpansionTile(
+                          title: 'Help & Support',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SupportWebViewScreen(
+                                  supportUrl: AppConstants.supportUrl,
+                                ),
                               ),
                             );
                           },
