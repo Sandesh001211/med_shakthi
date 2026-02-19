@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "166092967086",
+    "project_id": "medshakthi",
+    "storage_bucket": "medshakthi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:166092967086:android:1596d2e12adecd4112b13f",
+        "android_client_info": {
+          "package_name": "com.example.med_shakthi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRnUYZHYNJ-qv-_gZ3kA71BbEatCiNEb0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
