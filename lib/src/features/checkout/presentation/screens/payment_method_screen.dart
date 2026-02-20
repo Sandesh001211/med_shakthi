@@ -105,7 +105,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
           : 'No address provided';
 
       // 4. Create ONE order per supplier
-      for (var entry in itemsBySupplier.entries) {
+      /*for (var entry in itemsBySupplier.entries) {
         final supplierId = entry.key;
         final items = entry.value;
 
@@ -149,6 +149,71 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         }).toList();
 
         await supabase.from('order_details').insert(orderDetailRows);
+      }*/
+
+      for (var entry in itemsBySupplier.entries) {
+        final supplierId = entry.key;
+        final items = entry.value;
+
+        // Calculate total
+        final supplierSubtotal = items.fold(
+          0.0,
+              (sum, item) => sum + (item.price * item.quantity),
+        );
+        final supplierTotal = supplierSubtotal + shipping;
+
+        // Insert order
+        final order = await supabase
+            .from('orders')
+            .insert({
+          "user_id": user.id,
+          "order_group_id": orderGroupId,
+          "supplier_id": supplierId,
+          "total_amount": supplierTotal,
+          "shipping": shipping,
+          "shipping_address": deliveryAddressText,
+          "status": "pending",
+          "payment_status": "pending",
+          "payment_method_id": paymentStore.selectedMethodId,
+        })
+            .select()
+            .single();
+
+        // Create order details rows
+        final orderDetailRows = items.map((item) {
+          return {
+            "order_id": order['id'],
+            "product_id": item.id,
+            "supplier_id": supplierId,
+            "item_name": item.title ?? item.name,
+            "brand": item.brand ?? "",
+            "unit_size": item.size ?? "",
+            "image_url": item.imagePath ?? item.imageUrl ?? "",
+            "price": item.price,
+            "quantity": item.quantity,
+          };
+        }).toList();
+
+        //  Insert order details
+        await supabase.from('order_details').insert(orderDetailRows);
+        // print("Calling Edge Function for supplier: $supplierId");
+
+        // CALL EDGE FUNCTION HERE (AFTER INSERT)
+        if (supplierId != null) {
+          // final session = supabase.auth.currentSession;
+          print("Calling Edge Function for supplier: $supplierId");
+
+          await supabase.functions.invoke(
+            'send-order-notification',
+            body: {
+              "supplier_id": supplierId,
+              "order_id": order['id'],
+            },
+           /* headers: {
+              'Authorization': 'Bearer ${session!.accessToken}',
+            },*/
+          );
+        }
       }
 
       if (!mounted) return;
