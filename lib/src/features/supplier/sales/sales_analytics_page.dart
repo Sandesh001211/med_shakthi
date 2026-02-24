@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'sales_stats_service.dart';
 import 'dart:io';
-import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
-// permission_handler removed (unused)
 import 'package:open_filex/open_filex.dart';
 
 class SalesAnalyticsPage extends StatefulWidget {
@@ -20,19 +18,60 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
   String _selectedCategory = 'All';
   String _selectedPaymentStatus = 'All';
   late AnimationController _animationController;
+  late Future<Map<String, dynamic>> _salesStatsFuture;
+
+  // Search and transactions
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, String>> _allTransactions = [];
+  List<Map<String, String>> _filteredTransactions = [];
 
   @override
   void initState() {
     super.initState();
+    _salesStatsFuture = _fetchStats();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..forward();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  Future<Map<String, dynamic>> _fetchStats() {
+    return SalesStatsService().fetchSalesStats(dateRange: _selectedDateRange);
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredTransactions = List.from(_allTransactions);
+      } else {
+        _filteredTransactions = _allTransactions.where((t) {
+          return t['id']!.toLowerCase().contains(query) ||
+              t['medicine']!.toLowerCase().contains(query) ||
+              t['status']!.toLowerCase().contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  void _applyFiltersAndRefetch() {
+    setState(() {
+      _salesStatsFuture = SalesStatsService().fetchSalesStats(
+        dateRange: _selectedDateRange,
+        category: _selectedCategory == 'All' ? null : _selectedCategory,
+        paymentStatus: _selectedPaymentStatus == 'All'
+            ? null
+            : _selectedPaymentStatus,
+      );
+      _searchController.clear();
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -44,85 +83,124 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // App Bar
-            SliverAppBar(
-              floating: true,
-              snap: true,
-              elevation: 0,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              title: Text(
-                'Sales Analytics',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                  color: theme.textTheme.bodyLarge?.color,
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _salesStatsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: CircularProgressIndicator(
+                  color: theme.colorScheme.primary,
                 ),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(
-                    Icons.filter_list_rounded,
-                    color: theme.iconTheme.color,
+              );
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: theme.colorScheme.error,
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Error: ${snapshot.error}'),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () =>
+                          setState(() => _salesStatsFuture = _fetchStats()),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: Text('No data found.'));
+            }
+            final data = snapshot.data ?? {};
+
+            // Sync transactions for search
+            final transactionsRaw =
+                data['recentTransactions'] as List<dynamic>? ?? [];
+            _allTransactions = transactionsRaw.map((e) {
+              final map = e as Map<String, dynamic>;
+              return map.map((key, value) => MapEntry(key, value.toString()));
+            }).toList();
+
+            if (_searchController.text.isEmpty) {
+              _filteredTransactions = List.from(_allTransactions);
+            }
+
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  floating: true,
+                  snap: true,
+                  elevation: 0,
+                  backgroundColor: theme.scaffoldBackgroundColor,
+                  title: Text(
+                    'Sales Analytics',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
-                  onPressed: () => _showFilterBottomSheet(context),
+                  actions: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.refresh,
+                        color: theme.colorScheme.primary,
+                      ),
+                      tooltip: 'Refresh',
+                      onPressed: _applyFiltersAndRefetch,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.filter_list_rounded,
+                        color: theme.iconTheme.color,
+                      ),
+                      onPressed: () => _showFilterBottomSheet(context),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
-                const SizedBox(width: 8),
+
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildDateRangeSelector(isDark),
+                      const SizedBox(height: 20),
+                      _buildSalesSummaryCards(isDark, data),
+                      const SizedBox(height: 24),
+                      _buildFilterChips(isDark),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Sales Trend', isDark),
+                      const SizedBox(height: 16),
+                      _buildSalesTrendChart(isDark, data),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Category Performance', isDark),
+                      const SizedBox(height: 16),
+                      _buildCategoryBarChart(isDark, data),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Top Selling Products', isDark),
+                      const SizedBox(height: 16),
+                      _buildTopSellingList(isDark, data),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Recent Transactions', isDark),
+                      const SizedBox(height: 16),
+                      _buildSalesDetailsTable(isDark),
+                      const SizedBox(height: 100),
+                    ]),
+                  ),
+                ),
               ],
-            ),
-
-            // Content
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  // Date Range Selector
-                  _buildDateRangeSelector(isDark),
-                  const SizedBox(height: 20),
-
-                  // Sales Summary Cards
-                  _buildSalesSummaryCards(isDark),
-                  const SizedBox(height: 24),
-
-                  // Filter Chips
-                  _buildFilterChips(isDark),
-                  const SizedBox(height: 24),
-
-                  // Sales Trend Chart
-                  _buildSectionTitle('Sales Trend', isDark),
-                  const SizedBox(height: 16),
-                  _buildSalesTrendChart(isDark),
-                  const SizedBox(height: 24),
-
-                  // Category-wise Sales
-                  _buildSectionTitle('Category Performance', isDark),
-                  const SizedBox(height: 16),
-                  _buildCategoryBarChart(isDark),
-                  const SizedBox(height: 24),
-
-                  // Payment Status Breakdown
-                  _buildSectionTitle('Payment Status', isDark),
-                  const SizedBox(height: 16),
-                  _buildPaymentDonutChart(isDark),
-                  const SizedBox(height: 24),
-
-                  // Top Selling Medicines
-                  _buildSectionTitle('Top Selling Products', isDark),
-                  const SizedBox(height: 16),
-                  _buildTopSellingList(isDark),
-                  const SizedBox(height: 24),
-
-                  // Sales Details Table
-                  _buildSectionTitle('Recent Transactions', isDark),
-                  const SizedBox(height: 16),
-                  _buildSalesDetailsTable(isDark),
-                  const SizedBox(height: 100),
-                ]),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -150,9 +228,11 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
           return Expanded(
             child: GestureDetector(
               onTap: () {
-                setState(() => _selectedDateRange = range);
                 if (range == 'Custom') {
                   _showDateRangePicker(context);
+                } else {
+                  setState(() => _selectedDateRange = range);
+                  _applyFiltersAndRefetch();
                 }
               },
               child: AnimatedContainer(
@@ -189,63 +269,56 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     );
   }
 
-  Widget _buildSalesSummaryCards(bool isDark) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: SalesStatsService().fetchSalesStats(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  Widget _buildSalesSummaryCards(bool isDark, Map<String, dynamic> data) {
+    final revenue = data['totalRevenue'] ?? 0.0;
+    final orders = data['totalOrders'] ?? 0;
+    final pending = data['pendingOrders'] ?? 0;
+    final growth = data['growth'] ?? 0.0;
+    final growthStr = growth >= 0
+        ? '+${growth.toStringAsFixed(1)}%'
+        : '${growth.toStringAsFixed(1)}%';
 
-        final data = snapshot.data ?? {};
-        final revenue = data['totalRevenue'] ?? 0.0;
-        final orders = data['totalOrders'] ?? 0;
-        final pending = data['pendingOrders'] ?? 0;
-        final growth = data['growth'] ?? 0.0;
-
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.4,
-          children: [
-            _buildSummaryCard(
-              'Total Revenue',
-              '₹${revenue.toStringAsFixed(0)}',
-              '+$growth%',
-              Icons.trending_up_rounded,
-              const Color(0xFF4CA6A8),
-              isDark,
-            ),
-            _buildSummaryCard(
-              'Total Orders',
-              '$orders',
-              '+8%', // Placeholder for orders growth
-              Icons.shopping_bag_rounded,
-              const Color(0xFF6366F1),
-              isDark,
-            ),
-            _buildSummaryCard(
-              'Profit Growth',
-              '$growth%',
-              '+$growth%',
-              Icons.show_chart_rounded,
-              const Color(0xFF10B981),
-              isDark,
-            ),
-            _buildSummaryCard(
-              'Pending Orders',
-              '$pending',
-              '-3%', // Placeholder
-              Icons.pending_actions_rounded,
-              const Color(0xFFF59E0B),
-              isDark,
-            ),
-          ],
-        );
-      },
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 1.4,
+      children: [
+        _buildSummaryCard(
+          'Total Revenue',
+          '₹${(revenue as double).toStringAsFixed(0)}',
+          growthStr,
+          Icons.trending_up_rounded,
+          const Color(0xFF4CA6A8),
+          isDark,
+        ),
+        _buildSummaryCard(
+          'Total Orders',
+          '$orders',
+          'Count',
+          Icons.shopping_bag_rounded,
+          const Color(0xFF6366F1),
+          isDark,
+        ),
+        _buildSummaryCard(
+          'Profit Growth',
+          growthStr,
+          growthStr,
+          Icons.show_chart_rounded,
+          const Color(0xFF10B981),
+          isDark,
+        ),
+        _buildSummaryCard(
+          'Pending Orders',
+          '$pending',
+          'Needs Action',
+          Icons.pending_actions_rounded,
+          const Color(0xFFF59E0B),
+          isDark,
+        ),
+      ],
     );
   }
 
@@ -344,18 +417,18 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
-          _buildFilterChip('📅 $_selectedDateRange', isDark, () => {}),
+          _buildFilterChip('📅 $_selectedDateRange', isDark, () {}),
           const SizedBox(width: 8),
           _buildFilterChip(
             '🗂 Category: $_selectedCategory',
             isDark,
-            () => _showCategoryFilter(context),
+            () => _showFilterBottomSheet(context),
           ),
           const SizedBox(width: 8),
           _buildFilterChip(
             '💳 Payment: $_selectedPaymentStatus',
             isDark,
-            () => _showPaymentFilter(context),
+            () => _showFilterBottomSheet(context),
           ),
         ],
       ),
@@ -418,29 +491,33 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     );
   }
 
-  Widget _buildSalesTrendChart(bool isDark) {
+  Widget _buildSalesTrendChart(bool isDark, Map<String, dynamic> data) {
+    final List<Map<String, dynamic>> salesTrend =
+        (data['salesTrend'] as List<dynamic>?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList() ??
+        [];
+
+    if (salesTrend.isEmpty) {
+      return _buildEmptyChart(isDark, 280);
+    }
+
+    double maxY = salesTrend
+        .map((e) => (e['value'] as num).toDouble())
+        .reduce((curr, next) => curr > next ? curr : next);
+    if (maxY < 10) maxY = 10;
+    maxY *= 1.2;
+
     return Container(
       height: 280,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _chartDecoration(isDark),
       child: LineChart(
         LineChartData(
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: 2,
+            horizontalInterval: maxY / 5 > 0 ? maxY / 5 : 1,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: isDark
@@ -454,13 +531,24 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 45,
                 getTitlesWidget: (value, meta) {
+                  if (value == meta.max || value == meta.min) {
+                    return const SizedBox.shrink();
+                  }
+                  String text;
+                  if (value >= 100000) {
+                    text = '₹${(value / 100000).toStringAsFixed(1)}L';
+                  } else if (value >= 1000) {
+                    text = '₹${(value / 1000).toStringAsFixed(1)}k';
+                  } else {
+                    text = '₹${value.toInt()}';
+                  }
                   return Text(
-                    '₹${value.toInt()}L',
+                    text,
                     style: TextStyle(
                       color: isDark ? Colors.white60 : Colors.black54,
-                      fontSize: 11,
+                      fontSize: 10,
                     ),
                   );
                 },
@@ -470,20 +558,19 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  const days = [
-                    'Mon',
-                    'Tue',
-                    'Wed',
-                    'Thu',
-                    'Fri',
-                    'Sat',
-                    'Sun',
-                  ];
-                  if (value.toInt() >= 0 && value.toInt() < days.length) {
+                  if (value != value.toInt()) return const SizedBox.shrink();
+                  int idx = value.toInt();
+                  if (idx >= 0 && idx < salesTrend.length) {
+                    if (salesTrend.length > 15 &&
+                        idx % 3 != 0 &&
+                        idx != salesTrend.length - 1 &&
+                        idx != 0) {
+                      return const SizedBox.shrink();
+                    }
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        days[value.toInt()],
+                        salesTrend[idx]['label'] as String,
                         style: TextStyle(
                           color: isDark ? Colors.white60 : Colors.black54,
                           fontSize: 11,
@@ -491,7 +578,7 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                       ),
                     );
                   }
-                  return const SizedBox();
+                  return const SizedBox.shrink();
                 },
               ),
             ),
@@ -504,20 +591,18 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
           ),
           borderData: FlBorderData(show: false),
           minX: 0,
-          maxX: 6,
+          maxX: (salesTrend.length - 1).toDouble(),
           minY: 0,
-          maxY: 10,
+          maxY: maxY,
           lineBarsData: [
             LineChartBarData(
-              spots: const [
-                FlSpot(0, 3),
-                FlSpot(1, 5),
-                FlSpot(2, 4),
-                FlSpot(3, 7),
-                FlSpot(4, 6),
-                FlSpot(5, 8),
-                FlSpot(6, 9),
-              ],
+              spots: List.generate(
+                salesTrend.length,
+                (index) => FlSpot(
+                  index.toDouble(),
+                  (salesTrend[index]['value'] as num).toDouble(),
+                ),
+              ),
               isCurved: true,
               gradient: const LinearGradient(
                 colors: [Color(0xFF63B4B7), Color(0xFF4CA6A8)],
@@ -528,9 +613,9 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   return FlDotCirclePainter(
-                    radius: 6,
+                    radius: 4,
                     color: Colors.white,
-                    strokeWidth: 3,
+                    strokeWidth: 2,
                     strokeColor: const Color(0xFF4CA6A8),
                   );
                 },
@@ -553,34 +638,60 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     );
   }
 
-  Widget _buildCategoryBarChart(bool isDark) {
+  // ✅ FIX: dynamic bar count — no more hardcoded [0],[1],[2],[3]
+  Widget _buildCategoryBarChart(bool isDark, Map<String, dynamic> data) {
+    final Map<String, double> categoryMap =
+        (data['categoryPerformance'] as Map<String, dynamic>?)?.map(
+          (key, value) => MapEntry(key, (value as num).toDouble()),
+        ) ??
+        {};
+
+    if (categoryMap.isEmpty) {
+      return _buildEmptyChart(isDark, 300, message: 'No category data yet');
+    }
+
+    final sortedCategories = categoryMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Take up to 6 categories dynamically
+    final topEntries = sortedCategories.take(6).toList();
+    final topCategoryNames = topEntries.map((e) => e.key).toList();
+    final topCategoryValues = topEntries.map((e) => e.value).toList();
+
+    double maxY = topCategoryValues.reduce(
+      (curr, next) => curr > next ? curr : next,
+    );
+    if (maxY < 10) maxY = 10;
+    maxY *= 1.2;
+
+    const barColors = [
+      Color(0xFF4CA6A8),
+      Color(0xFF6366F1),
+      Color(0xFF10B981),
+      Color(0xFFF59E0B),
+      Color(0xFFEF4444),
+      Color(0xFFEC4899),
+    ];
+
     return Container(
       height: 300,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _chartDecoration(isDark),
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: 10,
+          maxY: maxY,
           barTouchData: BarTouchData(
             enabled: true,
             touchTooltipData: BarTouchTooltipData(
               getTooltipColor: (group) => const Color(0xFF4CA6A8),
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                String label = '';
+                if (group.x < topCategoryNames.length) {
+                  label = '${topCategoryNames[group.x]}\n';
+                }
                 return BarTooltipItem(
-                  '₹${rod.toY.toInt()}L',
+                  '$label₹${rod.toY.toInt()}',
                   const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -593,13 +704,24 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 45,
                 getTitlesWidget: (value, meta) {
+                  if (value == meta.max || value == meta.min) {
+                    return const SizedBox.shrink();
+                  }
+                  String text;
+                  if (value >= 100000) {
+                    text = '₹${(value / 100000).toStringAsFixed(1)}L';
+                  } else if (value >= 1000) {
+                    text = '₹${(value / 1000).toStringAsFixed(1)}k';
+                  } else {
+                    text = '₹${value.toInt()}';
+                  }
                   return Text(
-                    '₹${value.toInt()}L',
+                    text,
                     style: TextStyle(
                       color: isDark ? Colors.white60 : Colors.black54,
-                      fontSize: 11,
+                      fontSize: 10,
                     ),
                   );
                 },
@@ -609,25 +731,22 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  const categories = [
-                    'Medicines',
-                    'Supplements',
-                    'Devices',
-                    'Others',
-                  ];
-                  if (value.toInt() >= 0 && value.toInt() < categories.length) {
+                  int idx = value.toInt();
+                  if (idx >= 0 && idx < topCategoryNames.length) {
+                    String name = topCategoryNames[idx];
+                    if (name.length > 8) name = '${name.substring(0, 7)}…';
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        categories[value.toInt()],
+                        name,
                         style: TextStyle(
                           color: isDark ? Colors.white60 : Colors.black54,
-                          fontSize: 11,
+                          fontSize: 10,
                         ),
                       ),
                     );
                   }
-                  return const SizedBox();
+                  return const SizedBox.shrink();
                 },
               ),
             ),
@@ -641,7 +760,7 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: 2,
+            horizontalInterval: maxY / 5 > 0 ? maxY / 5 : 1,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: isDark
@@ -652,194 +771,68 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
             },
           ),
           borderData: FlBorderData(show: false),
-          barGroups: [
-            _buildBarGroup(0, 7, const Color(0xFF4CA6A8)),
-            _buildBarGroup(1, 5, const Color(0xFF6366F1)),
-            _buildBarGroup(2, 3, const Color(0xFF10B981)),
-            _buildBarGroup(3, 2, const Color(0xFFF59E0B)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  BarChartGroupData _buildBarGroup(int x, double y, Color color) {
-    return BarChartGroupData(
-      x: x,
-      barRods: [
-        BarChartRodData(
-          toY: y,
-          gradient: LinearGradient(
-            colors: [color, color.withValues(alpha: 0.7)],
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-          ),
-          width: 40,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPaymentDonutChart(bool isDark) {
-    return Container(
-      height: 320,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 4,
-                centerSpaceRadius: 60,
-                sections: [
-                  PieChartSectionData(
-                    value: 68,
-                    title: '68%',
-                    color: const Color(0xFF10B981),
-                    radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+          // ✅ Generate bars dynamically — no more hardcoded indices
+          barGroups: List.generate(topEntries.length, (i) {
+            final color = barColors[i % barColors.length];
+            return BarChartGroupData(
+              x: i,
+              barRods: [
+                BarChartRodData(
+                  toY: topCategoryValues[i],
+                  gradient: LinearGradient(
+                    colors: [color, color.withValues(alpha: 0.7)],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
                   ),
-                  PieChartSectionData(
-                    value: 22,
-                    title: '22%',
-                    color: const Color(0xFFF59E0B),
-                    radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  width: 28,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8),
                   ),
-                  PieChartSectionData(
-                    value: 10,
-                    title: '10%',
-                    color: const Color(0xFFEF4444),
-                    radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildLegendItem(
-                  'Paid',
-                  '₹6.1L',
-                  const Color(0xFF10B981),
-                  isDark,
-                ),
-                const SizedBox(height: 12),
-                _buildLegendItem(
-                  'Pending',
-                  '₹2.0L',
-                  const Color(0xFFF59E0B),
-                  isDark,
-                ),
-                const SizedBox(height: 12),
-                _buildLegendItem(
-                  'Failed',
-                  '₹0.9L',
-                  const Color(0xFFEF4444),
-                  isDark,
                 ),
               ],
-            ),
-          ),
-        ],
+            );
+          }),
+        ),
       ),
     );
   }
 
-  Widget _buildLegendItem(
-    String label,
-    String value,
-    Color color,
-    bool isDark,
-  ) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  Widget _buildTopSellingList(bool isDark, Map<String, dynamic> data) {
+    var productsRaw = data['topProducts'] as List<dynamic>? ?? [];
 
-  Widget _buildTopSellingList(bool isDark) {
-    final products = [
-      {'name': 'Paracetamol 500mg', 'revenue': '₹1.2L', 'percentage': 0.85},
-      {'name': 'Vitamin D3 Capsules', 'revenue': '₹0.9L', 'percentage': 0.70},
-      {'name': 'Amoxicillin 250mg', 'revenue': '₹0.7L', 'percentage': 0.55},
-      {'name': 'Omega-3 Fish Oil', 'revenue': '₹0.5L', 'percentage': 0.40},
-      {'name': 'Multivitamin Tablets', 'revenue': '₹0.4L', 'percentage': 0.30},
-    ];
+    if (productsRaw.isEmpty) {
+      return _buildEmptyChart(
+        isDark,
+        120,
+        message: 'No product sales data yet',
+      );
+    }
+
+    int maxSales = productsRaw
+        .map((p) => p['sales'] as int)
+        .reduce((a, b) => a > b ? a : b);
+    if (maxSales == 0) maxSales = 1;
+
+    final products = productsRaw.map((p) {
+      double revenue =
+          (p['price'] as num).toDouble() * (p['sales'] as num).toDouble();
+
+      String formatAmt(double amt) {
+        if (amt >= 100000) return '₹${(amt / 100000).toStringAsFixed(1)}L';
+        if (amt >= 1000) return '₹${(amt / 1000).toStringAsFixed(1)}k';
+        return '₹${amt.toInt()}';
+      }
+
+      return {
+        'name': p['name'].toString(),
+        'revenue': formatAmt(revenue),
+        'percentage': (p['sales'] as num).toDouble() / maxSales,
+      };
+    }).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _chartDecoration(isDark),
       child: Column(
         children: products.asMap().entries.map((entry) {
           final index = entry.key;
@@ -941,63 +934,17 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     );
   }
 
+  // ✅ FIX: _filteredTransactions used (with search), not raw data parameter
   Widget _buildSalesDetailsTable(bool isDark) {
-    final transactions = [
-      {
-        'id': '#ORD-1247',
-        'medicine': 'Paracetamol 500mg',
-        'qty': '120',
-        'amount': '₹12,400',
-        'status': 'Paid',
-        'date': '09 Feb 2026',
-      },
-      {
-        'id': '#ORD-1246',
-        'medicine': 'Vitamin D3',
-        'qty': '80',
-        'amount': '₹8,900',
-        'status': 'Pending',
-        'date': '08 Feb 2026',
-      },
-      {
-        'id': '#ORD-1245',
-        'medicine': 'Amoxicillin',
-        'qty': '60',
-        'amount': '₹7,200',
-        'status': 'Paid',
-        'date': '08 Feb 2026',
-      },
-      {
-        'id': '#ORD-1244',
-        'medicine': 'Omega-3',
-        'qty': '45',
-        'amount': '₹5,400',
-        'status': 'Failed',
-        'date': '07 Feb 2026',
-      },
-    ];
-
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _chartDecoration(isDark),
       child: Column(
         children: [
-          // Header with search and export
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
+                // ✅ FIX: wired-up search with TextEditingController
                 Expanded(
                   child: Container(
                     height: 40,
@@ -1008,12 +955,13 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: TextField(
+                      controller: _searchController,
                       style: TextStyle(
                         color: isDark ? Colors.white : Colors.black87,
                         fontSize: 13,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Search transactions...',
+                        hintText: 'Search by ID, medicine or status…',
                         hintStyle: TextStyle(
                           color: isDark ? Colors.white60 : Colors.black54,
                           fontSize: 13,
@@ -1023,6 +971,18 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                           color: isDark ? Colors.white60 : Colors.black54,
                           size: 20,
                         ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  size: 16,
+                                  color: isDark
+                                      ? Colors.white54
+                                      : Colors.black45,
+                                ),
+                                onPressed: () => _searchController.clear(),
+                              )
+                            : null,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 10,
@@ -1032,8 +992,9 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                   ),
                 ),
                 const SizedBox(width: 12),
+                // ✅ FIX: correct CSV API
                 GestureDetector(
-                  onTap: () => _exportCSV(transactions),
+                  onTap: () => _exportCSV(_filteredTransactions),
                   child: Container(
                     height: 40,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1043,8 +1004,8 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      children: const [
+                    child: const Row(
+                      children: [
                         Icon(
                           Icons.file_download_outlined,
                           color: Colors.white,
@@ -1066,163 +1027,176 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
               ],
             ),
           ),
-
-          // Table
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(
-                isDark
-                    ? Colors.white.withValues(alpha: 0.03)
-                    : Colors.black.withValues(alpha: 0.02),
+          if (_filteredTransactions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                _searchController.text.isNotEmpty
+                    ? 'No transactions match your search'
+                    : 'No transactions found',
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.black45,
+                  fontSize: 14,
+                ),
               ),
-              dataRowColor: WidgetStateProperty.all(Colors.transparent),
-              columns: [
-                DataColumn(
-                  label: Text(
-                    'Order ID',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(
+                  isDark
+                      ? Colors.white.withValues(alpha: 0.03)
+                      : Colors.black.withValues(alpha: 0.02),
                 ),
-                DataColumn(
-                  label: Text(
-                    'Medicine',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Qty',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Amount',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Status',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Date',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-              rows: transactions.map((transaction) {
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Text(
-                        transaction['id']!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF4CA6A8),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        transaction['medicine']!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        transaction['qty']!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        transaction['amount']!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: transaction['status'] == 'Paid'
-                              ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                              : transaction['status'] == 'Pending'
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.1)
-                              : const Color(0xFFEF4444).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          transaction['status']!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: transaction['status'] == 'Paid'
-                                ? const Color(0xFF10B981)
-                                : transaction['status'] == 'Pending'
-                                ? const Color(0xFFF59E0B)
-                                : const Color(0xFFEF4444),
+                dataRowColor: WidgetStateProperty.all(Colors.transparent),
+                columns: [
+                  _tableColumn('Order ID', isDark),
+                  _tableColumn('Medicine', isDark),
+                  _tableColumn('Qty', isDark),
+                  _tableColumn('Amount', isDark),
+                  _tableColumn('Status', isDark),
+                  _tableColumn('Date', isDark),
+                ],
+                rows: _filteredTransactions.map((transaction) {
+                  final status = transaction['status'] ?? '';
+                  final isSuccess = [
+                    'paid',
+                    'success',
+                    'completed',
+                  ].contains(status.toLowerCase());
+                  final isPending = status.toLowerCase() == 'pending';
+                  final statusColor = isSuccess
+                      ? const Color(0xFF10B981)
+                      : isPending
+                      ? const Color(0xFFF59E0B)
+                      : const Color(0xFFEF4444);
+
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Text(
+                          transaction['id'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4CA6A8),
                           ),
                         ),
                       ),
-                    ),
-                    DataCell(
-                      Text(
-                        transaction['date']!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white70 : Colors.black54,
+                      DataCell(
+                        Text(
+                          transaction['medicine'] ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                      DataCell(
+                        Text(
+                          transaction['qty'] ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          transaction['amount'] ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            status.isNotEmpty
+                                ? status[0].toUpperCase() + status.substring(1)
+                                : '',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          transaction['date'] ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
             ),
-          ),
         ],
+      ),
+    );
+  }
+
+  DataColumn _tableColumn(String label, bool isDark) {
+    return DataColumn(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          color: isDark ? Colors.white : Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _chartDecoration(bool isDark) {
+    return BoxDecoration(
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.3)
+              : Colors.black.withValues(alpha: 0.05),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyChart(
+    bool isDark,
+    double height, {
+    String message = 'No data available',
+  }) {
+    return Container(
+      height: height,
+      alignment: Alignment.center,
+      decoration: _chartDecoration(isDark),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: isDark ? Colors.white54 : Colors.black45,
+          fontSize: 14,
+        ),
       ),
     );
   }
@@ -1233,175 +1207,234 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
       backgroundColor: Colors.transparent,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Filters',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Filters',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _filterSectionLabel('Date Range', isDark),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: ['Today', 'Week', 'Month', 'Custom'].map((range) {
+                      return ChoiceChip(
+                        label: Text(range),
+                        selected: _selectedDateRange == range,
+                        selectedColor: const Color(0xFF4CA6A8),
+                        labelStyle: TextStyle(
+                          color: _selectedDateRange == range
+                              ? Colors.white
+                              : null,
+                        ),
+                        onSelected: (selected) {
+                          setModalState(() => _selectedDateRange = range);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  _filterSectionLabel('Category', isDark),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        [
+                          'All',
+                          'Medicines',
+                          'Supplements',
+                          'Devices',
+                          'Baby Care',
+                          'Personal Care',
+                        ].map((category) {
+                          return ChoiceChip(
+                            label: Text(category),
+                            selected: _selectedCategory == category,
+                            selectedColor: const Color(0xFF4CA6A8),
+                            labelStyle: TextStyle(
+                              color: _selectedCategory == category
+                                  ? Colors.white
+                                  : null,
+                            ),
+                            onSelected: (selected) {
+                              setModalState(() => _selectedCategory = category);
+                            },
+                          );
+                        }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  _filterSectionLabel('Payment Status', isDark),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: ['All', 'Paid', 'Pending', 'Failed'].map((
+                      status,
+                    ) {
+                      return ChoiceChip(
+                        label: Text(status),
+                        selected: _selectedPaymentStatus == status,
+                        selectedColor: const Color(0xFF4CA6A8),
+                        labelStyle: TextStyle(
+                          color: _selectedPaymentStatus == status
+                              ? Colors.white
+                              : null,
+                        ),
+                        onSelected: (selected) {
+                          setModalState(() => _selectedPaymentStatus = status);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF4CA6A8),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        // ✅ FIX: apply filters and re-fetch data
+                        _applyFiltersAndRefetch();
+                      },
+                      child: const Text(
+                        'Apply Filters',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
-              const SizedBox(height: 20),
-              Text(
-                'Date Range',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: ['Today', 'Week', 'Month', 'Custom'].map((range) {
-                  return ChoiceChip(
-                    label: Text(range),
-                    selected: _selectedDateRange == range,
-                    onSelected: (selected) {
-                      setState(() => _selectedDateRange = range);
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Category',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: ['All', 'Medicines', 'Supplements', 'Devices'].map((
-                  category,
-                ) {
-                  return ChoiceChip(
-                    label: Text(category),
-                    selected: _selectedCategory == category,
-                    onSelected: (selected) {
-                      setState(() => _selectedCategory = category);
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Payment Status',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: ['All', 'Paid', 'Pending', 'Failed'].map((status) {
-                  return ChoiceChip(
-                    label: Text(status),
-                    selected: _selectedPaymentStatus == status,
-                    onSelected: (selected) {
-                      setState(() => _selectedPaymentStatus = status);
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  void _showDateRangePicker(BuildContext context) {
-    // Implement custom date range picker
-    showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+  Widget _filterSectionLabel(String label, bool isDark) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.white70 : Colors.black54,
+      ),
     );
   }
 
-  void _showCategoryFilter(BuildContext context) {
-    _showFilterBottomSheet(context);
+  Future<void> _showDateRangePicker(BuildContext context) async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: const Color(0xFF4CA6A8)),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedDateRange = 'Custom';
+        _salesStatsFuture = SalesStatsService().fetchSalesStats(
+          dateRange: 'Custom',
+          customStartDate: picked.start,
+          customEndDate: picked.end,
+        );
+      });
+    }
   }
 
-  void _showPaymentFilter(BuildContext context) {
-    _showFilterBottomSheet(context);
-  }
-
+  // ✅ FIX: correct CSV API — ListToCsvConverter().convert()
   Future<void> _exportCSV(List<Map<String, dynamic>> transactions) async {
     try {
-      // CSV rows
-      List<List<dynamic>> rows = [];
+      List<List<dynamic>> rows = [
+        ['Order ID', 'Medicine', 'Qty', 'Amount', 'Status', 'Date'],
+        ...transactions.map(
+          (t) => [
+            t['id'],
+            t['medicine'],
+            t['qty'],
+            t['amount'],
+            t['status'],
+            t['date'],
+          ],
+        ),
+      ];
 
-      rows.add(["Order ID", "Medicine", "Qty", "Amount", "Status", "Date"]);
-
-      for (var t in transactions) {
-        rows.add([
-          t['id'],
-          t['medicine'],
-          t['qty'],
-          t['amount'],
-          t['status'],
-          t['date'],
-        ]);
+      // Simple CSV encoding — quote any field containing commas or quotes
+      String encodeField(dynamic v) {
+        final s = v?.toString() ?? '';
+        if (s.contains(',') || s.contains('"') || s.contains('\n')) {
+          return '"${s.replaceAll('"', '""')}"';
+        }
+        return s;
       }
 
-      // Convert to CSV
-      String csvData = const ListToCsvConverter().convert(rows);
+      String csvData = rows
+          .map((row) => row.map(encodeField).join(','))
+          .join('\n');
 
-      // Save in app directory (NO PERMISSION REQUIRED)
       final directory = await getApplicationDocumentsDirectory();
-
       final path =
-          "${directory.path}/sales_export_${DateTime.now().millisecondsSinceEpoch}.csv";
+          '${directory.path}/sales_export_${DateTime.now().millisecondsSinceEpoch}.csv';
 
-      final file = File(path);
-
-      await file.writeAsString(csvData);
-
-      // Open file
+      await File(path).writeAsString(csvData);
       await OpenFilex.open(path);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("CSV Exported Successfully")),
+        const SnackBar(content: Text('CSV exported successfully')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Export failed: $e")));
+      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
   }
 }

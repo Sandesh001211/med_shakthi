@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:med_shakthi/src/features/profile/presentation/screens/settings_page.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -109,8 +110,31 @@ class _AccountPageState extends State<AccountPage> {
     );
     if (picked == null) return;
 
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: picked.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Profile Photo',
+          toolbarColor: const Color(0xFF4C8077),
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+          hideBottomControls: true,
+        ),
+        IOSUiSettings(
+          title: 'Crop Profile Photo',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          aspectRatioPickerButtonHidden: true,
+        ),
+      ],
+    );
+
+    if (croppedFile == null) return;
+
     setState(() {
-      _profileImage = File(picked.path);
+      _profileImage = File(croppedFile.path);
       _isUploadingAvatar = true;
     });
 
@@ -118,7 +142,7 @@ class _AccountPageState extends State<AccountPage> {
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      final ext = picked.path.split('.').last.toLowerCase();
+      final ext = croppedFile.path.split('.').last.toLowerCase();
       final fileName = '${user.id}/avatar.$ext';
 
       // Upload to avatars bucket (upsert to replace existing)
@@ -126,7 +150,7 @@ class _AccountPageState extends State<AccountPage> {
           .from('avatars')
           .upload(
             fileName,
-            File(picked.path),
+            File(croppedFile.path),
             fileOptions: const FileOptions(upsert: true),
           );
 
@@ -139,15 +163,15 @@ class _AccountPageState extends State<AccountPage> {
       // Save URL to users table
       await supabase
           .from('users')
-          .update({'avatar_url': publicUrl})
+          .update({'avatar_url': cacheBustedUrl})
           .eq('id', user.id);
 
       if (mounted) {
         setState(() => _avatarUrl = cacheBustedUrl);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Profile photo updated!'),
-            backgroundColor: Color(0xFF6AA39B),
+            content: Text("Profile photo updated!"),
+            backgroundColor: Color(0xFF4C8077),
           ),
         );
       }
@@ -156,7 +180,7 @@ class _AccountPageState extends State<AccountPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to upload photo: $e')));
+        ).showSnackBar(SnackBar(content: Text("Failed to upload photo: $e")));
       }
     } finally {
       if (mounted) setState(() => _isUploadingAvatar = false);
@@ -235,82 +259,6 @@ class _AccountPageState extends State<AccountPage> {
             context,
           ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
         }
-      }
-    }
-  }
-
-  Future<void> _handleDeleteAccount() async {
-    final passwordController = TextEditingController();
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Account"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "This action cannot be undone. Please enter your password to confirm.",
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Password",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && passwordController.text.isNotEmpty) {
-      setState(() => _isLoading = true);
-      try {
-        // Re-authenticate user
-        final user = supabase.auth.currentUser;
-        if (user != null && user.email != null) {
-          await supabase.auth.signInWithPassword(
-            email: user.email!,
-            password: passwordController.text,
-          );
-
-          // If sign-in succeeds, proceed to delete (using Edge Function or Admin API usually,
-          // but calling rpc or just sign out if no delete mechanism exists yet in generic Supabase setup).
-          // Assuming we want to call a function or just show success for now if strict delete isn't set up.
-          // For now, attempting a standard user deletion pattern if RLS allows, or just signing out + visual confirmation.
-          // Real deletion requires calling a Postgres function or Admin API.
-          // We will mock the success flow and sign them out.
-          await supabase.rpc(
-            'delete_user',
-          ); // Hypothetical RPC or just sign out
-          await supabase.auth.signOut();
-
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Account deleted successfully")),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -562,31 +510,6 @@ class _AccountPageState extends State<AccountPage> {
                             );
                           },
                         ),
-
-                        const SizedBox(height: 24),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                child: const Text("Change Password"),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red.shade600,
-                                ),
-                                onPressed: _handleDeleteAccount,
-                                child: const Text("Delete Account"),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 16),
 
                         FilledButton(
                           onPressed: _handleLogout,
