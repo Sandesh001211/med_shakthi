@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/core/utils/custom_snackbar.dart';
 
+// Same regex used by login and signup pages
+final _forgotEmailRegExp = RegExp(r'^[\w\-\.+]+@[\w\-]+\.[a-zA-Z]{2,}$');
+
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -21,20 +24,47 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       return;
     }
 
+    // Validate email format
+    if (!_forgotEmailRegExp.hasMatch(email)) {
+      showCustomSnackBar(
+        context,
+        'Enter a valid email address (e.g. name@example.com)',
+        isError: true,
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
+      // Check if email is registered before sending reset link
+      final exists = await Supabase.instance.client.rpc(
+        'check_email_exists',
+        params: {'p_email': email},
+      );
+
+      if (!mounted) return;
+
+      if (exists != true) {
+        showCustomSnackBar(
+          context,
+          'No account found with this email. Please sign up first.',
+          isError: true,
+        );
+        return;
+      }
+
       await Supabase.instance.client.auth.resetPasswordForEmail(
         email,
-        redirectTo: 'medshakthi://reset-password', // optional deep link
+        redirectTo: 'medshakthi://reset-password',
       );
 
       if (!mounted) return;
 
       showCustomSnackBar(context, 'Password reset link sent to your email');
-
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       showCustomSnackBar(context, 'Error: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -73,7 +103,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
-  // 📦 Card UI
   Widget _buildCard() {
     return Container(
       padding: const EdgeInsets.all(32),
@@ -116,7 +145,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           const SizedBox(height: 12),
 
           const Text(
-            'Enter your email and we will send you\ninstructions to reset your password.',
+            'Enter your registered email and we will send\nyou instructions to reset your password.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
           ),
@@ -131,7 +160,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
-  // 📧 Email field
   Widget _emailField() {
     return TextField(
       controller: _emailController,
@@ -159,7 +187,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
-  // 🔘 Button
   Widget _sendButton() {
     return SizedBox(
       width: double.infinity,

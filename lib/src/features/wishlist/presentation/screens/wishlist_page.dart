@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// Removed unused import: supabase_flutter.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/wishlist_service.dart';
 import '../../data/models/wishlist_item_model.dart';
 import '../../../cart/data/cart_data.dart';
@@ -8,6 +8,7 @@ import '../../../cart/data/cart_item.dart';
 import '../../../products/presentation/screens/product_page.dart';
 import '../../../products/data/models/product_model.dart';
 import 'package:med_shakthi/src/core/utils/smart_product_image.dart';
+import 'package:med_shakthi/src/core/utils/custom_snackbar.dart';
 
 class WishlistPage extends StatelessWidget {
   const WishlistPage({super.key});
@@ -57,7 +58,6 @@ class WishlistPage extends StatelessWidget {
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Modern App Bar
               SliverAppBar(
                 floating: true,
                 pinned: true,
@@ -68,9 +68,7 @@ class WishlistPage extends StatelessWidget {
                   "My Wishlist",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
-                // No leading back button as this is a primary tab
               ),
-
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverList(
@@ -88,16 +86,95 @@ class WishlistPage extends StatelessWidget {
   }
 }
 
-class _WishlistCard extends StatelessWidget {
+class _WishlistCard extends StatefulWidget {
   final WishlistItem item;
   final int index;
 
   const _WishlistCard({required this.item, required this.index});
 
   @override
+  State<_WishlistCard> createState() => _WishlistCardState();
+}
+
+class _WishlistCardState extends State<_WishlistCard> {
+  bool _addingToCart = false;
+
+  /// Checks live stock + is_active before adding to cart.
+  Future<void> _addToCart() async {
+    if (_addingToCart) return;
+    setState(() => _addingToCart = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final pRes = await supabase
+          .from('products')
+          .select('stock_quantity, is_active, price')
+          .eq('id', widget.item.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (pRes == null) {
+        showCustomSnackBar(
+          context,
+          'Product is no longer available.',
+          isError: true,
+        );
+        return;
+      }
+
+      final isActive = pRes['is_active'] == true;
+      final stock = pRes['stock_quantity'] as int? ?? 0;
+      final livePrice =
+          (pRes['price'] as num?)?.toDouble() ?? widget.item.price;
+
+      if (!isActive) {
+        showCustomSnackBar(
+          context,
+          '${widget.item.name} is currently unavailable.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (stock <= 0) {
+        showCustomSnackBar(
+          context,
+          '${widget.item.name} is out of stock.',
+          isError: true,
+        );
+        return;
+      }
+
+      // All checks passed — add to cart with live price
+      context.read<CartData>().addItem(
+        CartItem(
+          id: widget.item.id,
+          name: widget.item.name,
+          title: widget.item.name,
+          brand: 'General',
+          size: 'Standard',
+          price: livePrice,
+          imagePath: widget.item.image,
+          imageUrl: widget.item.image,
+          quantity: 1,
+        ),
+      );
+
+      if (mounted) showCustomSnackBar(context, 'Added to cart!');
+    } catch (e) {
+      if (mounted) {
+        showCustomSnackBar(context, 'Could not add to cart: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _addingToCart = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 400 + (index * 100)),
+      duration: Duration(milliseconds: 400 + (widget.index * 100)),
       tween: Tween(begin: 0.0, end: 1.0),
       curve: Curves.easeOutQuart,
       builder: (context, value, child) {
@@ -126,10 +203,10 @@ class _WishlistCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             onTap: () {
               final product = Product(
-                id: item.id,
-                name: item.name,
-                price: item.price,
-                image: item.image,
+                id: widget.item.id,
+                name: widget.item.name,
+                price: widget.item.price,
+                image: widget.item.image,
                 category: "General",
                 rating: 0.0,
               );
@@ -153,8 +230,8 @@ class _WishlistCard extends StatelessWidget {
                           ? Colors.grey[800]
                           : Colors.grey[50],
                       child: SmartProductImage(
-                        imageUrl: item.image,
-                        category: item.name,
+                        imageUrl: widget.item.image,
+                        category: widget.item.name,
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -165,7 +242,7 @@ class _WishlistCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.name,
+                          widget.item.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -176,7 +253,7 @@ class _WishlistCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "₹${item.price.toStringAsFixed(2)}",
+                          "₹${widget.item.price.toStringAsFixed(2)}",
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -191,7 +268,7 @@ class _WishlistCard extends StatelessWidget {
                       IconButton(
                         onPressed: () {
                           context.read<WishlistService>().removeFromWishlist(
-                            item.id,
+                            widget.item.id,
                           );
                         },
                         icon: const Icon(
@@ -201,42 +278,32 @@ class _WishlistCard extends StatelessWidget {
                         tooltip: "Remove",
                       ),
                       const SizedBox(height: 4),
-                      ElevatedButton(
-                        onPressed: () {
-                          final cartItem = CartItem(
-                            id: item.id,
-                            name: item.name,
-                            title: item.name,
-                            brand: "General",
-                            size: "Standard",
-                            price: item.price,
-                            imagePath: item.image,
-                            imageUrl: item.image,
-                          );
-                          context.read<CartData>().addItem(cartItem);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Added to Cart"),
-                              duration: Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
+                      SizedBox(
+                        height: 32,
+                        width: 64,
+                        child: ElevatedButton(
+                          onPressed: _addingToCart ? null : _addToCart,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4C8077),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4C8077),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 0,
                           ),
-                          minimumSize: const Size(0, 32),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: const Text(
-                          "Add",
-                          style: TextStyle(fontSize: 12),
+                          child: _addingToCart
+                              ? const SizedBox(
+                                  height: 14,
+                                  width: 14,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Add",
+                                  style: TextStyle(fontSize: 12),
+                                ),
                         ),
                       ),
                     ],

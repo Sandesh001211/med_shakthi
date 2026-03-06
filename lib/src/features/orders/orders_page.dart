@@ -21,8 +21,8 @@ class _OrdersPageState extends State<OrdersPage> {
   final List<String> statusList = [
     "All",
     "Pending",
-    "Accepted",
-    "Dispatched",
+    "Confirmed",
+    "Shipped",
     "Delivered",
     "Cancelled",
   ];
@@ -85,20 +85,21 @@ class _OrdersPageState extends State<OrdersPage> {
 
       // Search filter
       if (searchText.trim().isNotEmpty) {
-        final q = searchText.toLowerCase();
-        final orderId = (order["order_group_id"] ?? "")
+        final q = searchText.toLowerCase().trim();
+        final orderNum = (order["order_number"] ?? "").toString().toLowerCase();
+        final groupId = (order["order_group_id"] ?? "")
             .toString()
             .toLowerCase();
-        final itemName = (order["item_name"] ?? "").toString().toLowerCase();
-        // Check supplier name if available
         final supplier = order['suppliers'] as Map<String, dynamic>?;
         final supplierName = (supplier?['company_name'] ?? "")
             .toString()
             .toLowerCase();
+        final status = (order["status"] ?? "").toString().toLowerCase();
 
-        if (!orderId.contains(q) &&
-            !itemName.contains(q) &&
-            !supplierName.contains(q)) {
+        if (!orderNum.contains(q) &&
+            !groupId.contains(q) &&
+            !supplierName.contains(q) &&
+            !status.contains(q)) {
           continue;
         }
       }

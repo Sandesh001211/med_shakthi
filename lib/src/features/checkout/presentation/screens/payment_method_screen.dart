@@ -173,52 +173,6 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
           : 'No address provided';
 
       // 4. Create ONE order per supplier
-      /*for (var entry in itemsBySupplier.entries) {
-        final supplierId = entry.key;
-        final items = entry.value;
-
-        // Calculate total for this supplier's items
-        final supplierSubtotal = items.fold(
-          0.0,
-          (sum, item) => sum + (item.price * item.quantity),
-        );
-        final supplierTotal = supplierSubtotal + shipping;
-
-        // Insert ONE order row for this supplier
-        final order = await supabase
-            .from('orders')
-            .insert({
-              "user_id": user.id,
-              "order_group_id": orderGroupId,
-              "supplier_id": supplierId,
-              "total_amount": supplierTotal,
-              "shipping": shipping,
-              "shipping_address": deliveryAddressText,
-              "status": "pending",
-              "payment_status": "pending",
-              "payment_method_id": paymentStore.selectedMethodId,
-            })
-            .select()
-            .single();
-
-        // 5. Insert order_details for each item in this supplier's order
-        final orderDetailRows = items.map((item) {
-          return {
-            "order_id": order['id'],
-            "product_id": item.id,
-            "supplier_id": supplierId, // NEW: Track supplier per item
-            "item_name": item.title ?? item.name,
-            "brand": item.brand ?? "",
-            "unit_size": item.size ?? "",
-            "image_url": item.imagePath ?? item.imageUrl ?? "",
-            "price": item.price,
-            "quantity": item.quantity,
-          };
-        }).toList();
-
-        await supabase.from('order_details').insert(orderDetailRows);
-      }*/
-
       for (var entry in itemsBySupplier.entries) {
         final supplierId = entry.key;
         final items = entry.value;
@@ -264,29 +218,19 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
           };
         }).toList();
 
-        //  Insert order details
+        // Insert order details
         await supabase.from('order_details').insert(orderDetailRows);
 
-        // Deduct stock levels for purchased items
+        // ── Stock deduction (atomic: avoids race conditions) ────────────
         for (var item in items) {
           try {
-            // Fetch current stock, subtract quantity, then update.
-            // A Supabase RPC would be more race-condition resistant, but this works.
-            final pRes = await supabase
-                .from('products')
-                .select('stock_quantity')
-                .eq('id', item.id)
-                .maybeSingle();
-
-            if (pRes != null) {
-              final currentStock = pRes['stock_quantity'] as int? ?? 0;
-              final newStock = currentStock - item.quantity;
-              await supabase
-                  .from('products')
-                  .update({'stock_quantity': newStock < 0 ? 0 : newStock})
-                  .eq('id', item.id);
-            }
+            // Single UPDATE: clamps at 0, no separate SELECT needed.
+            await supabase.rpc(
+              'deduct_stock',
+              params: {'p_product_id': item.id, 'p_quantity': item.quantity},
+            );
           } catch (e) {
+            // Non-fatal: stock deduction failure should not block the order.
             debugPrint("Failed to deduct stock for product ${item.id}: $e");
           }
         }

@@ -17,6 +17,9 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
   String _selectedDateRange = 'Month';
   String _selectedCategory = 'All';
   String _selectedPaymentStatus = 'All';
+  // Track custom date range for display label
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
   late AnimationController _animationController;
   late Future<Map<String, dynamic>> _salesStatsFuture;
 
@@ -412,25 +415,39 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
   }
 
   Widget _buildFilterChips(bool isDark) {
+    String dateLabel;
+    if (_selectedDateRange == 'Custom' &&
+        _customStartDate != null &&
+        _customEndDate != null) {
+      final fmt = (DateTime d) =>
+          '${d.day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1]}';
+      dateLabel = '${fmt(_customStartDate!)} – ${fmt(_customEndDate!)}';
+    } else {
+      dateLabel = _selectedDateRange;
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
           _buildFilterChip(
-            '📅 $_selectedDateRange',
+            Icons.calendar_today_rounded,
+            dateLabel,
             isDark,
             () => _showFilterBottomSheet(context),
           ),
           const SizedBox(width: 8),
           _buildFilterChip(
-            '🗂 Category: $_selectedCategory',
+            Icons.category_outlined,
+            'Category: $_selectedCategory',
             isDark,
             () => _showFilterBottomSheet(context),
           ),
           const SizedBox(width: 8),
           _buildFilterChip(
-            '💳 Payment: $_selectedPaymentStatus',
+            Icons.credit_card_outlined,
+            'Payment: $_selectedPaymentStatus',
             isDark,
             () => _showFilterBottomSheet(context),
           ),
@@ -439,11 +456,16 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     );
   }
 
-  Widget _buildFilterChip(String label, bool isDark, VoidCallback onTap) {
+  Widget _buildFilterChip(
+    IconData icon,
+    String label,
+    bool isDark,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -464,6 +486,8 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(icon, size: 15, color: const Color(0xFF4CA6A8)),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
@@ -506,11 +530,26 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
       return _buildEmptyChart(isDark, 280);
     }
 
+    // ── Monthly view: collapse 30 daily points into 4 weekly bars ──────────
+    if (_selectedDateRange == 'Month' && salesTrend.length > 14) {
+      return _buildWeeklyBarChart(isDark, salesTrend);
+    }
+
+    // ── Week / Today / Custom: line chart ──────────────────────────────────
     double maxY = salesTrend
         .map((e) => (e['value'] as num).toDouble())
         .reduce((curr, next) => curr > next ? curr : next);
     if (maxY < 10) maxY = 10;
     maxY *= 1.2;
+
+    // Show dots only when few points (<=10); skip labels to avoid overlap
+    final showDots = salesTrend.length <= 10;
+    // Label stride: show 1 in every N labels
+    final int stride = salesTrend.length > 20
+        ? 7
+        : salesTrend.length > 10
+        ? 3
+        : 1;
 
     return Container(
       height: 280,
@@ -563,26 +602,26 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
                   if (value != value.toInt()) return const SizedBox.shrink();
-                  int idx = value.toInt();
-                  if (idx >= 0 && idx < salesTrend.length) {
-                    if (salesTrend.length > 15 &&
-                        idx % 3 != 0 &&
-                        idx != salesTrend.length - 1 &&
-                        idx != 0) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        salesTrend[idx]['label'] as String,
-                        style: TextStyle(
-                          color: isDark ? Colors.white60 : Colors.black54,
-                          fontSize: 11,
-                        ),
-                      ),
-                    );
+                  final int idx = value.toInt();
+                  if (idx < 0 || idx >= salesTrend.length) {
+                    return const SizedBox.shrink();
                   }
-                  return const SizedBox.shrink();
+                  // Skip labels based on stride to prevent crowding
+                  if (stride > 1 &&
+                      idx % stride != 0 &&
+                      idx != salesTrend.length - 1) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      salesTrend[idx]['label'] as String,
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.black54,
+                        fontSize: 10,
+                      ),
+                    ),
+                  );
                 },
               ),
             ),
@@ -598,6 +637,26 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
           maxX: (salesTrend.length - 1).toDouble(),
           minY: 0,
           maxY: maxY,
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (spot) =>
+                  isDark ? const Color(0xFF2D2D2D) : const Color(0xFF4CA6A8),
+              getTooltipItems: (spots) => spots.map((s) {
+                final idx = s.x.toInt();
+                final lbl = idx >= 0 && idx < salesTrend.length
+                    ? salesTrend[idx]['label'] as String
+                    : '';
+                return LineTooltipItem(
+                  '$lbl\n₹${s.y.toInt()}',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
           lineBarsData: [
             LineChartBarData(
               spots: List.generate(
@@ -608,16 +667,17 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                 ),
               ),
               isCurved: true,
+              curveSmoothness: 0.35,
               gradient: const LinearGradient(
                 colors: [Color(0xFF63B4B7), Color(0xFF4CA6A8)],
               ),
-              barWidth: 4,
+              barWidth: 3,
               isStrokeCapRound: true,
               dotData: FlDotData(
-                show: true,
+                show: showDots,
                 getDotPainter: (spot, percent, barData, index) {
                   return FlDotCirclePainter(
-                    radius: 4,
+                    radius: 3.5,
                     color: Colors.white,
                     strokeWidth: 2,
                     strokeColor: const Color(0xFF4CA6A8),
@@ -628,7 +688,7 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF4CA6A8).withValues(alpha: 0.3),
+                    const Color(0xFF4CA6A8).withValues(alpha: 0.25),
                     const Color(0xFF4CA6A8).withValues(alpha: 0.0),
                   ],
                   begin: Alignment.topCenter,
@@ -638,6 +698,158 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Monthly view: groups 30 daily points into 4 weekly bars.
+  /// Much cleaner than 30 crowded line-chart points.
+  Widget _buildWeeklyBarChart(bool isDark, List<Map<String, dynamic>> daily) {
+    // Bucket daily data into 4 weeks
+    final List<double> weekTotals = [0, 0, 0, 0];
+    for (int i = 0; i < daily.length; i++) {
+      final weekIdx = (i ~/ 7).clamp(0, 3);
+      weekTotals[weekIdx] += (daily[i]['value'] as num).toDouble();
+    }
+    final labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+    double maxY = weekTotals.reduce((a, b) => a > b ? a : b);
+    if (maxY < 10) maxY = 10;
+    maxY *= 1.2;
+
+    const barColors = [
+      Color(0xFF4CA6A8),
+      Color(0xFF6366F1),
+      Color(0xFF10B981),
+      Color(0xFFF59E0B),
+    ];
+
+    String fmtY(double v) {
+      if (v >= 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
+      if (v >= 1000) return '₹${(v / 1000).toStringAsFixed(1)}k';
+      return '₹${v.toInt()}';
+    }
+
+    return Container(
+      height: 280,
+      padding: const EdgeInsets.all(20),
+      decoration: _chartDecoration(isDark),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Monthly Breakdown by Week',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxY,
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (group) => const Color(0xFF4CA6A8),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        '${labels[group.x]}\n${fmtY(rod.toY)}',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 50,
+                      getTitlesWidget: (value, meta) {
+                        if (value == meta.max || value == meta.min) {
+                          return const SizedBox.shrink();
+                        }
+                        return Text(
+                          fmtY(value),
+                          style: TextStyle(
+                            color: isDark ? Colors.white60 : Colors.black54,
+                            fontSize: 10,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= labels.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            labels[idx],
+                            style: TextStyle(
+                              color: isDark ? Colors.white70 : Colors.black54,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxY / 4 > 0 ? maxY / 4 : 1,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: List.generate(4, (i) {
+                  final color = barColors[i];
+                  return BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(
+                        toY: weekTotals[i],
+                        gradient: LinearGradient(
+                          colors: [color, color.withValues(alpha: 0.7)],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                        ),
+                        width: 40,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(10),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1377,6 +1589,8 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
+      // Calendar-only: removes the keyboard icon so users can't type dates manually
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -1392,6 +1606,8 @@ class _SalesAnalyticsPageState extends State<SalesAnalyticsPage>
     if (picked != null && mounted) {
       setState(() {
         _selectedDateRange = 'Custom';
+        _customStartDate = picked.start;
+        _customEndDate = picked.end;
         _salesStatsFuture = SalesStatsService().fetchSalesStats(
           dateRange: 'Custom',
           customStartDate: picked.start,

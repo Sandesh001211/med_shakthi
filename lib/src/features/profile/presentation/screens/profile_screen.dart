@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -182,7 +183,13 @@ class _AccountPageState extends State<AccountPage> {
 
   Future<void> _showEditProfileSheet() async {
     final nameCtrl = TextEditingController(text: _displayName);
-    final phoneCtrl = TextEditingController(text: _phone);
+    // Strip +91 prefix so the field shows only the 10-digit number
+    final rawPhone = _phone.startsWith('+91')
+        ? _phone.substring(3)
+        : _phone.startsWith('91') && _phone.length == 12
+        ? _phone.substring(2)
+        : _phone;
+    final phoneCtrl = TextEditingController(text: rawPhone);
 
     await showModalBottomSheet(
       context: context,
@@ -202,13 +209,14 @@ class _AccountPageState extends State<AccountPage> {
                 .from('users')
                 .update({
                   'name': nameCtrl.text.trim(),
-                  'phone': phoneCtrl.text.trim(),
+                  // Always store with +91 prefix
+                  'phone': '+91${phoneCtrl.text.trim()}',
                 })
                 .eq('id', user.id);
             if (mounted) {
               setState(() {
                 _displayName = nameCtrl.text.trim();
-                _phone = phoneCtrl.text.trim();
+                _phone = '+91${phoneCtrl.text.trim()}';
               });
               nav.pop();
               messenger.showSnackBar(
@@ -619,7 +627,7 @@ class _AccountPageState extends State<AccountPage> {
 
 /* ─────────────── Edit Profile Bottom Sheet ─────────────── */
 
-class _EditProfileSheet extends StatelessWidget {
+class _EditProfileSheet extends StatefulWidget {
   final TextEditingController nameCtrl;
   final TextEditingController phoneCtrl;
   final Future<void> Function() onSave;
@@ -629,6 +637,14 @@ class _EditProfileSheet extends StatelessWidget {
     required this.phoneCtrl,
     required this.onSave,
   });
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  final _formKey = GlobalKey<FormState>();
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -643,60 +659,123 @@ class _EditProfileSheet extends StatelessWidget {
           color: Theme.of(context).scaffoldBackgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Edit Profile',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            _inputField(
-              context,
-              controller: nameCtrl,
-              label: 'Full Name',
-              icon: Icons.person_outline,
-            ),
-            const SizedBox(height: 14),
-            _inputField(
-              context,
-              controller: phoneCtrl,
-              label: 'Phone Number',
-              icon: Icons.phone_outlined,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: onSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-                child: const Text(
-                  'Save Changes',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Edit Profile',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Name Field (MED-004: no special chars) ──────────────
+              _inputField(
+                context,
+                controller: widget.nameCtrl,
+                label: 'Full Name',
+                icon: Icons.person_outline,
+                maxLength: 50,
+                inputFormatters: [
+                  // Only letters, spaces, dots and hyphens (common in names)
+                  FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z .\-']")),
+                ],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Name cannot be empty';
+                  }
+                  final words = v
+                      .trim()
+                      .split(RegExp(r'\s+'))
+                      .where((w) => w.isNotEmpty)
+                      .length;
+                  if (words < 2) {
+                    return 'Enter at least first and last name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // ── Phone Field (digits only, exactly 10 digits, +91 added on save)
+              _inputField(
+                context,
+                controller: widget.phoneCtrl,
+                label: 'Phone Number (+91)',
+                icon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Phone cannot be empty';
+                  }
+                  if (v.trim().length != 10) {
+                    return 'Enter a valid 10-digit number';
+                  }
+                  if (!RegExp(r'^[6-9]\d{9}$').hasMatch(v.trim())) {
+                    return 'Enter a valid Indian mobile number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _saving
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) return;
+                          setState(() => _saving = true);
+                          await widget.onSave();
+                          if (mounted) setState(() => _saving = false);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -708,10 +787,20 @@ class _EditProfileSheet extends StatelessWidget {
     required String label,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
   }) {
-    return TextField(
+    return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
+      validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      buildCounter:
+          (_, {required currentLength, required isFocused, maxLength}) =>
+              null, // hide character counter
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
@@ -728,6 +817,14 @@ class _EditProfileSheet extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFF6AA39B), width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
         ),
       ),
     );

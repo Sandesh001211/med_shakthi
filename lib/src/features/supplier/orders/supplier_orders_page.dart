@@ -190,10 +190,15 @@ class _SupplierOrdersPageState extends State<SupplierOrdersPage> {
         final address = (parentOrder['shipping_address'] ?? '')
             .toString()
             .toLowerCase();
+        final userData = parentOrder['users'] as Map<String, dynamic>?;
+        final buyerName = (userData?['name'] ?? '').toString().toLowerCase();
+        final buyerPhone = (userData?['phone'] ?? '').toString().toLowerCase();
         final q = _searchQuery.toLowerCase();
         if (!productName.contains(q) &&
             !orderNum.contains(q) &&
-            !address.contains(q)) {
+            !address.contains(q) &&
+            !buyerName.contains(q) &&
+            !buyerPhone.contains(q)) {
           return false;
         }
       }

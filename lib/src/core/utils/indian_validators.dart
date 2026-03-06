@@ -80,8 +80,21 @@ class IndianValidators {
 
   static String? validateCity(String? value) {
     if (value == null || value.isEmpty) return 'Enter city';
+    if (value.trim().length < 3) {
+      return 'City name must be at least 3 characters';
+    }
     if (!_cityRegex.hasMatch(value)) {
       return 'City should contain alphabets only';
+    }
+    return null;
+  }
+
+  static String? validateDrugLicenseNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Enter drug license number';
+    }
+    if (value.trim().length < 5) {
+      return 'Drug license number must be at least 5 characters';
     }
     return null;
   }

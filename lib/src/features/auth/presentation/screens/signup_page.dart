@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +8,9 @@ import 'package:med_shakthi/src/core/utils/custom_snackbar.dart';
 import 'package:med_shakthi/src/core/widgets/app_logo.dart';
 
 import 'login_page.dart';
+
+// ── Same email regex as login page ────────────────────────────────────────────
+final _signupEmailRegExp = RegExp(r'^[\w\-\.+]+@[\w\-]+\.[a-zA-Z]{2,}$');
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -53,238 +57,294 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? [const Color(0xFF1A1A1A), const Color(0xFF121212)]
-                : [const Color(0xFFEAF4F2), const Color(0xFFF6FBFA)],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 10),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new,
-                      color: Color(0xFF6AA39B),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Center(
-                    child: Text(
-                      'Create Account',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).textTheme.titleLarge?.color,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  const Center(child: AppLogo(size: 100)),
-
-                  const SizedBox(height: 40),
-
-                  // _label('Full Name'), // Replaced by label in _buildTextField
-                  _buildTextField(
-                    _nameController,
-                    'Full Name',
-                    Icons.person_outline,
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Enter your name'
-                        : null,
-                  ),
-
-                  // const SizedBox(height: 20), // Padding handled by _buildTextField
-
-                  // _label('Email'), // Replaced by label in _buildTextField
-                  _buildTextField(
-                    _emailController,
-                    'Email',
-                    Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) => value != null && value.contains('@')
-                        ? null
-                        : 'Enter valid email',
-                  ),
-
-                  // const SizedBox(height: 20), // Padding handled by _buildTextField
-
-                  // _label('Phone Number'), // Replaced by label in _buildTextField
-                  _buildTextField(
-                    _phoneController,
-                    'Phone Number',
-                    Icons.phone_outlined,
-                    prefixText: '$_countryCode ',
-                    keyboardType: TextInputType.phone,
-                    maxLength: 10,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ], // Added for strict phone formatting
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Enter phone number';
-                      }
-                      if (value.length != 10) {
-                        return 'Enter valid 10-digit number';
-                      }
-                      return null;
-                    },
-                  ),
-
-                  // const SizedBox(height: 20), // Padding handled by _buildTextField
-
-                  // _label('Password'), // Replaced by label in _buildTextField
-                  _buildTextField(
-                    _passwordController,
-                    'Password',
-                    Icons.lock_outline,
-                    isPassword: true,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: const Color(0xFF6AA39B),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                    validator: (value) => value != null && value.length >= 6
-                        ? null
-                        : 'Minimum 6 characters',
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  /// Terms & Conditions
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _acceptTerms,
-                        activeColor: const Color(0xFF6AA39B),
-                        onChanged: (value) {
-                          setState(() {
-                            _acceptTerms = value ?? false;
-                            _checkFormValidity();
-                          });
-                        },
-                      ),
-                      Expanded(
-                        child: Text(
-                          'I agree to the Terms and Conditions & Privacy Policy',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Theme.of(context).textTheme.bodySmall?.color
-                                ?.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  if (_isLoading)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: _isFormValid
-                            ? [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF6AA39B,
-                                  ).withValues(alpha: 0.4),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ]
-                            : [],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _isFormValid ? _onSignupPressed : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isFormValid
-                              ? const Color(0xFF6AA39B)
-                              : Colors.grey.shade300,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 0, // Handled by Container for smoothness
-                        ),
-                        child: const Text(
-                          'Sign Up',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(height: 30),
-
-                  /// Login Redirect
-                  Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                          (route) => false,
-                        );
-                      },
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodySmall?.color
-                                ?.withValues(alpha: 0.6),
-                            fontSize: 14,
-                          ),
-                          children: [
-                            const TextSpan(text: 'Already have an account? '),
-                            TextSpan(
-                              text: 'Login',
-                              style: TextStyle(
-                                color: const Color(0xFF6AA39B),
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+      body: Stack(
+        children: [
+          // ── Background gradient + form ─────────────────────────────────
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: Theme.of(context).brightness == Brightness.dark
+                    ? [const Color(0xFF1A1A1A), const Color(0xFF121212)]
+                    : [const Color(0xFFEAF4F2), const Color(0xFFF6FBFA)],
               ),
             ),
-          ),
-        ),
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Color(0xFF6AA39B),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Text(
+                          'Create Account',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(
+                              context,
+                            ).textTheme.titleLarge?.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+
+                      const Center(child: AppLogo(size: 100)),
+
+                      const SizedBox(height: 40),
+
+                      // _label('Full Name'), // Replaced by label in _buildTextField
+                      _buildTextField(
+                        _nameController,
+                        'Full Name',
+                        Icons.person_outline,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Enter your name';
+                          }
+                          final words = value
+                              .trim()
+                              .split(RegExp(r'\s+'))
+                              .where((w) => w.isNotEmpty)
+                              .length;
+                          if (words < 2) {
+                            return 'Enter at least first and last name';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      // const SizedBox(height: 20), // Padding handled by _buildTextField
+
+                      // _label('Email'), // Replaced by label in _buildTextField
+                      _buildTextField(
+                        _emailController,
+                        'Email',
+                        Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        // MED-002: proper regex — rejects '@gmail.com', 'user@' etc.
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Enter your email';
+                          }
+                          if (!_signupEmailRegExp.hasMatch(value.trim())) {
+                            return 'Enter a valid email (e.g. name@domain.com)';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      // const SizedBox(height: 20), // Padding handled by _buildTextField
+
+                      // _label('Phone Number'), // Replaced by label in _buildTextField
+                      _buildTextField(
+                        _phoneController,
+                        'Phone Number',
+                        Icons.phone_outlined,
+                        prefixText: '$_countryCode ',
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ], // Added for strict phone formatting
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Enter phone number';
+                          }
+                          if (value.length != 10) {
+                            return 'Enter valid 10-digit number';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      // const SizedBox(height: 20), // Padding handled by _buildTextField
+
+                      // _label('Password'), // Replaced by label in _buildTextField
+                      _buildTextField(
+                        _passwordController,
+                        'Password',
+                        Icons.lock_outline,
+                        isPassword: true,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: const Color(0xFF6AA39B),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                        validator: (value) => value != null && value.length >= 6
+                            ? null
+                            : 'Minimum 6 characters',
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      /// Terms & Conditions
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _acceptTerms,
+                            activeColor: const Color(0xFF6AA39B),
+                            onChanged: (value) {
+                              setState(() {
+                                _acceptTerms = value ?? false;
+                                _checkFormValidity();
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: Text(
+                              'I agree to the Terms and Conditions & Privacy Policy',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: _isFormValid
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF6AA39B,
+                                    ).withValues(alpha: 0.4),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: (_isFormValid && !_isLoading)
+                              ? _onSignupPressed
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isFormValid
+                                ? const Color(0xFF6AA39B)
+                                : Colors.grey.shade300,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      /// Login Redirect
+                      Center(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const LoginPage(),
+                              ),
+                              (route) => false,
+                            );
+                          },
+                          child: RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color
+                                    ?.withValues(alpha: 0.6),
+                                fontSize: 14,
+                              ),
+                              children: [
+                                const TextSpan(
+                                  text: 'Already have an account? ',
+                                ),
+                                TextSpan(
+                                  text: 'Login',
+                                  style: TextStyle(
+                                    color: const Color(0xFF6AA39B),
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ), // closes SafeArea
+          ), // closes Container (background + form)
+          // ── MED-001: Full-screen loading overlay ─────────────────────
+          if (_isLoading)
+            Positioned.fill(
+              child: AbsorbPointer(
+                absorbing: true,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF6AA39B),
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -292,7 +352,7 @@ class _SignupPageState extends State<SignupPage> {
   void _checkFormValidity() {
     final isValid =
         _nameController.text.isNotEmpty &&
-        _emailController.text.contains('@') &&
+        _signupEmailRegExp.hasMatch(_emailController.text.trim()) &&
         _phoneController.text.length == 10 &&
         _passwordController.text.length >= 6 &&
         _acceptTerms;
@@ -324,38 +384,56 @@ class _SignupPageState extends State<SignupPage> {
       final password = _passwordController.text.trim();
 
       AuthResponse? authResponse;
-      bool isLogin = false;
 
+      // ✅ Pre-check: email already registered?
       try {
-        // 🔐 Step 1: Supabase Auth Signup
-        authResponse = await supabase.auth.signUp(
-          email: email,
-          password: password,
-          data: {'full_name': fullName, 'phone': phone},
+        final emailExists = await supabase.rpc(
+          'check_email_exists',
+          params: {'p_email': email},
         );
-      } on AuthException catch (e) {
-        // Handle "User already registered" by attempting login
-        if (e.message.contains('already registered') || e.statusCode == '400') {
-          try {
-            // Attempt to login to "reactivate" or verify ownership
-            final loginResponse = await supabase.auth.signInWithPassword(
-              email: email,
-              password: password,
-            );
-            if (loginResponse.user != null) {
-              authResponse = loginResponse;
-              isLogin = true; // Mark as login recovery
-            } else {
-              rethrow; // Login failed, rethrow original signup error
-            }
-          } catch (_) {
-            // If login fails (wrong password), throw original "already registered"
-            rethrow;
-          }
-        } else {
-          rethrow;
+        if (emailExists == true) {
+          if (!mounted) return;
+          await showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Email Already Registered'),
+              content: const Text(
+                'An account with this email already exists.\nPlease log in instead.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4C8077),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (route) => false,
+                    );
+                  },
+                  child: const Text('Go to Login'),
+                ),
+              ],
+            ),
+          );
+          return;
         }
+      } catch (_) {
+        // If the RPC fails, proceed — Supabase signUp will catch the duplicate.
       }
+
+      // 🔐 Supabase Auth Signup
+      authResponse = await supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {'full_name': fullName, 'phone': phone},
+      );
 
       final user = authResponse.user;
       if (user == null) {
@@ -370,35 +448,43 @@ class _SignupPageState extends State<SignupPage> {
 
       if (!mounted) return;
 
-      // ✅ Success
-      if (isLogin) {
-        // If we just logged them in, skip "Signup Success" dialog and go straight to dashboard
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      } else {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Text('Signup Successful'),
-            content: const Text(
-              'Your account has been created successfully!\n\nPlease check your email to verify your account before logging in.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  // Pop back to RootRouter, which will evaluate AuthGate
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                child: const Text('OK'),
-              ),
-            ],
+      // ✅ Success — always show verification dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Signup Successful'),
+          content: const Text(
+            'Your account has been created successfully!\n\nPlease check your email to verify your account before logging in.',
           ),
-        );
-      }
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     } on AuthException catch (e) {
       if (!mounted) return;
-      showCustomSnackBar(context, e.message, isError: true);
+      // Bounce-rate fix: "already registered" → clear redirect instead of silent auto-login
+      if (e.message.contains('already registered') || e.statusCode == '400') {
+        showCustomSnackBar(
+          context,
+          'An account with this email already exists. Please log in.',
+          isError: true,
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+      } else {
+        showCustomSnackBar(context, e.message, isError: true);
+      }
     } catch (e) {
       if (!mounted) return;
       showCustomSnackBar(context, 'Error: $e', isError: true);

@@ -330,10 +330,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       for (var item in _items) {
         if (item.productId == null) continue;
 
-        // Fetch fresh product info to check stock and active status
+        // Fetch fresh product info to check stock, active status AND supplier status
         final pRes = await supabase
             .from('products')
-            .select('stock_quantity, is_active, price')
+            .select(
+              'stock_quantity, is_active, price, supplier_id, suppliers(id)',
+            )
             .eq('id', item.productId!)
             .maybeSingle();
 
@@ -345,8 +347,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         final isActive = pRes['is_active'] == true;
         final stock = pRes['stock_quantity'] as int? ?? 0;
         final currentPrice = (pRes['price'] as num?)?.toDouble() ?? item.price;
+        // Check supplier exists (not deactivated/deleted)
+        final supplierExists = pRes['suppliers'] != null;
 
-        if (!isActive || stock <= 0) {
+        if (!isActive || stock <= 0 || !supplierExists) {
           itemsSkipped++;
           continue;
         }
@@ -830,12 +834,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       if (!mounted) return;
 
-      // Update status to 'cancelled' and save reason
-      // Note: 'cancellation_reason' column must exist in 'orders' table
+      // 1. Update status and save reason
       await supabase
           .from('orders')
           .update({'status': 'cancelled', 'cancellation_reason': reason})
           .eq('id', orderId);
+
+      // 2. Restore stock for each item in this order
+      for (final item in _items) {
+        if (item.productId == null) continue;
+        try {
+          await supabase.rpc(
+            'restore_stock',
+            params: {'p_product_id': item.productId!, 'p_quantity': item.qty},
+          );
+        } catch (e) {
+          debugPrint(
+            'Failed to restore stock for product ${item.productId}: $e',
+          );
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

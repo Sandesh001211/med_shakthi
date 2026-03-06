@@ -71,6 +71,29 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         update['cancellation_reason'] = reason;
       }
       await supabase.from('orders').update(update).eq('id', widget.orderId);
+
+      // Restore stock when order is rejected/cancelled
+      if (newStatus == 'cancelled') {
+        try {
+          final details = await supabase
+              .from('order_details')
+              .select('product_id, quantity')
+              .eq('order_id', widget.orderId);
+          for (final row in details) {
+            final productId = row['product_id'] as String?;
+            final qty = row['quantity'] as int? ?? 0;
+            if (productId != null && qty > 0) {
+              await supabase.rpc(
+                'restore_stock',
+                params: {'p_product_id': productId, 'p_quantity': qty},
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint('Stock restore failed on rejection: $e');
+        }
+      }
+
       await fetchOrderDetails();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -415,47 +438,78 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       );
     }
     if (status == 'confirmed') {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () => updateOrderStatus('shipped'),
-          icon: const Icon(Icons.local_shipping_outlined, size: 18),
-          label: const Text(
-            'Mark as Shipped',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _teal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ElevatedButton.icon(
+            onPressed: () => updateOrderStatus('shipped'),
+            icon: const Icon(Icons.local_shipping_outlined, size: 18),
+            label: const Text(
+              'Mark as Shipped',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _teal,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _showCancelDialog,
+            icon: const Icon(
+              Icons.cancel_outlined,
+              size: 16,
+              color: Colors.red,
+            ),
+            label: const Text(
+              'Cancel Order',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       );
     }
     if (status == 'shipped') {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () => updateOrderStatus('delivered'),
-          icon: const Icon(Icons.done_all, size: 18),
-          label: const Text(
-            'Mark as Delivered',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ElevatedButton.icon(
+            onPressed: () => updateOrderStatus('delivered'),
+            icon: const Icon(Icons.done_all, size: 18),
+            label: const Text(
+              'Mark as Delivered',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _showCancelDialog,
+            icon: const Icon(
+              Icons.cancel_outlined,
+              size: 16,
+              color: Colors.red,
+            ),
+            label: const Text(
+              'Cancel Order',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       );
     }
+    // delivered / cancelled — no actions
     return const SizedBox.shrink();
   }
 

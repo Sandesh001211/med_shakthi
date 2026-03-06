@@ -190,6 +190,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                         builder: (_) => const ProductFilterSheet(),
                       );
                   if (newFilter != null) {
+                    setState(() => _currentFilter = newFilter);
                     await _refreshProducts();
                   }
                 },

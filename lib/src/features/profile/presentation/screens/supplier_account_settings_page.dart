@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:med_shakthi/src/features/auth/presentation/screens/change_password_page.dart';
 
@@ -206,8 +207,21 @@ class _SupplierAccountSettingsPageState
                         controller: _supplierNameController,
                         label: "Owner Name",
                         icon: Icons.person_outline,
-                        validator: (value) =>
-                            value!.isEmpty ? 'Owner name is required' : null,
+                        maxLength: 50,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r"[a-zA-Z .\-']"),
+                          ),
+                        ],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Owner name is required';
+                          }
+                          if (value.trim().length < 2) {
+                            return 'Name must be at least 2 characters';
+                          }
+                          return null;
+                        },
                       ),
                       const Divider(height: 1),
                       _buildTextField(
@@ -215,8 +229,20 @@ class _SupplierAccountSettingsPageState
                         label: "Phone Number",
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
-                        validator: (value) =>
-                            value!.isEmpty ? 'Phone number is required' : null,
+                        maxLength: 10,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          if (value.trim().length != 10) {
+                            return 'Enter a valid 10-digit number';
+                          }
+                          return null;
+                        },
                       ),
                       const Divider(height: 1),
                       _buildReadOnlyField(
@@ -496,14 +522,22 @@ class _SupplierAccountSettingsPageState
     IconData? icon,
     bool showBorder = true,
     int maxLines = 1,
+    int? maxLength,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      maxLength: maxLength,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      buildCounter: maxLength != null
+          ? (_, {required currentLength, required isFocused, maxLength}) => null
+          : null,
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,

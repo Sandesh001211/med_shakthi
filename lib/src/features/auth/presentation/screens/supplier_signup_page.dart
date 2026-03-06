@@ -128,7 +128,6 @@ class _SupplierSignupPageState extends State<SupplierSignupPage> {
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // ... (Validation checks remain the same) ...
     if (_selectedCompanyType == null) {
       _showError('Please select company type');
       return;
@@ -140,6 +139,47 @@ class _SupplierSignupPageState extends State<SupplierSignupPage> {
     if (_selectedDocument == null) {
       _showError('Please upload drug license document');
       return;
+    }
+
+    // ━━ Pre-check: email already registered? ━━━━━━━━━━━━━━━━━━━━━━
+    // Do this BEFORE uploading the document to avoid the RLS 403 error.
+    try {
+      final emailExists = await supabase.rpc(
+        'check_email_exists',
+        params: {'p_email': _emailController.text.trim()},
+      );
+      if (emailExists == true) {
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Email Already Registered'),
+            content: const Text(
+              'An account with this email already exists.\nPlease log in or use a different email.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Use Different Email'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4C8077),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+                child: const Text('Go to Login'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    } catch (_) {
+      // If RPC fails for any reason, proceed with signup and let Supabase catch duplicates.
     }
 
     RootRouter.suppressAuthRedirect = true;
@@ -298,16 +338,38 @@ class _SupplierSignupPageState extends State<SupplierSignupPage> {
                           _nameController,
                           'Contact Person Name',
                           Icons.person,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter contact person name';
+                            }
+                            final words = value
+                                .trim()
+                                .split(RegExp(r'\s+'))
+                                .where((w) => w.isNotEmpty)
+                                .length;
+                            if (words < 2) {
+                              return 'Enter at least first and last name';
+                            }
+                            return null;
+                          },
                         ),
                         _buildTextField(
                           _emailController,
                           'Email Address',
                           Icons.email,
                           keyboardType: TextInputType.emailAddress,
-                          validator: (value) =>
-                              value != null && value.contains('@')
-                              ? null
-                              : 'Enter valid email',
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter email address';
+                            }
+                            final emailRegex = RegExp(
+                              r'^[\w\-\.+]+@[\w\-]+\.[a-zA-Z]{2,}$',
+                            );
+                            if (!emailRegex.hasMatch(value.trim())) {
+                              return 'Enter a valid email (e.g. name@example.com)';
+                            }
+                            return null;
+                          },
                         ),
                         _buildTextField(
                           _phoneController,
@@ -426,6 +488,20 @@ class _SupplierSignupPageState extends State<SupplierSignupPage> {
                           'Full Business Address',
                           Icons.home_work,
                           maxLines: 3,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter business address';
+                            }
+                            final wordCount = value
+                                .trim()
+                                .split(RegExp(r'\s+'))
+                                .where((w) => w.isNotEmpty)
+                                .length;
+                            if (wordCount < 3) {
+                              return 'Address must be at least 3 words';
+                            }
+                            return null;
+                          },
                         ),
 
                         const SizedBox(height: 20),
@@ -434,6 +510,7 @@ class _SupplierSignupPageState extends State<SupplierSignupPage> {
                           _drugLicenseNumberController,
                           'Drug License Number',
                           Icons.description,
+                          validator: IndianValidators.validateDrugLicenseNumber,
                         ),
                         _buildDatePicker(),
                         const SizedBox(height: 10),
